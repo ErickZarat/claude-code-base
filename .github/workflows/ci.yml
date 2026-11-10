@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]  # macOS runs the installer on bash 3.2, like a real Mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test tools
+        run: pip install pytest shellcheck-py
+
+      - name: Validate marketplace, plugin, skills and agents
+        run: python scripts/validate.py
+
+      - name: Shellcheck installer scripts
+        run: shellcheck install.sh plugins/eng-standards/install.sh
+
+      - name: Tests
+        run: pytest -q
+
+  hook-python39:
+    # The hook runs with whatever python3 the developer has; macOS's bundled one is 3.9.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - run: pip install pytest && pytest -q tests/test_guard_secrets.py
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

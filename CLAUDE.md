@@ -1,0 +1,34 @@
+# claude-code-base
+
+Personal Claude Code plugin marketplace that distributes engineering standards to every project:
+no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iterative PR review cycles.
+
+## Layout
+- `.claude-plugin/marketplace.json` — marketplace catalog (name `claude-code-base`).
+- `plugins/eng-standards/` — the plugin:
+  - `skills/*/SKILL.md` — skills (invoked as `/eng-standards:<name>`).
+  - `agents/*.md` — reviewer subagents (`requirements-verifier`, `performance-reviewer`).
+  - `hooks/hooks.json` + `hooks/guard_secrets.py` — PreToolUse secret/destructive-command guard.
+  - `template/` — files plugins cannot distribute (rules, CLAUDE.md, settings.json, pre-commit), copied into projects by `install.sh`.
+  - `install.sh` — manifest-based installer/updater (bash 3.2 compatible — macOS default shell).
+- `install.sh` (root) — wrapper for clone-based installs.
+- `tests/` — pytest behaviour tests for the hook and the installer. `scripts/validate.py` — static checks.
+
+## Commands
+| Purpose | Command |
+|---|---|
+| All checks | `python3 scripts/validate.py && shellcheck install.sh plugins/eng-standards/install.sh && pytest -q` |
+| Single test | `pytest -q tests/test_install.py -k conflict` |
+| Try plugin changes locally | `claude --plugin-dir ./plugins/eng-standards` |
+| Validate plugin (Claude CLI) | `claude plugin validate .` |
+| Try installer on a scratch dir | `./install.sh --dry-run /tmp/scratch` |
+
+## Rules for changing this repo
+- This repo follows its own standards: TDD for `guard_secrets.py` and `install.sh` changes (failing test first).
+- Never put realistic-looking secrets in tests; build fake values from fragments (see `tests/test_guard_secrets.py`).
+- Keep rules short and precise — one line per behaviour. They load into every session of every project.
+- Skills/agents: `name` must equal the folder/file name; the `description` decides when Claude uses it — make it specific.
+- Every user-visible change: bump `version` in `plugins/eng-standards/.claude-plugin/plugin.json` (semver) and add a
+  `CHANGELOG.md` entry. Template changes reach projects only when they re-run `/eng-standards:setup`.
+- Breaking a template path (renaming/removing a rule) is a MAJOR bump; note migration steps in the changelog.
+- Commits: Conventional Commits. Never force-push `main`.
