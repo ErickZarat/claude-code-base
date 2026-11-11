@@ -3,6 +3,19 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.3.0] — 2026-11-11
+### Fixed
+- The review cycle no longer starts fixing on its own. After **every** round it shows the full findings table and
+  asks: fix required (BLK/MAJ/Q) · fix required + minors · choose IDs · stop. Nothing is edited until you answer;
+  the decision is recorded in the ledger. `--auto` restores unattended behaviour (only when asked).
+  `/eng:task` pauses at the same checkpoints; `/eng:review-once` asks before fixing.
+
+### Added
+- **Coverage** section in every review report: depth and why, reviewers run (with model), reviewers skipped and why,
+  files reviewed vs changed, what was not checked, and the deeper option.
+- `Minimum review depth: quick|standard|thorough` in the project's CLAUDE.md — reviews never go below it
+  (enforced by `review_packet.py`). New projects get the line (default `quick`); existing projects can add it.
+
 ## [2.2.0] — 2026-11-11
 ### Changed
 - Review finding IDs carry their type/severity: `R<round>-<code>-<n>` with codes `BLK` (blocker), `MAJ` (major),

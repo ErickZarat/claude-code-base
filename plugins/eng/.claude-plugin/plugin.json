@@ -1,6 +1,6 @@
 {
   "name": "eng",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "No vibe coding: TDD, reuse-first, interface-first design, secret guard, definition of done, and iterative review cycles with requirements and performance reviewers.",
   "author": { "name": "Erick Zarat" },
   "keywords": ["tdd", "code-review", "security", "clean-code", "openspec"]

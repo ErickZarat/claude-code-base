@@ -219,7 +219,11 @@ Iterative review → remediation → re-review until merge-ready (`/eng:task` ru
 /eng:review 42                    # PR #42
 /eng:review 42 --depth thorough   # depth of round 1 (default: triage decides)
 /eng:review 42 --max-rounds 5     # default 3
+/eng:review 42 --auto             # no checkpoints — only for unattended runs
 ```
+After **every round** it stops: shows the full findings table and the Coverage section, then asks
+**Fix required** (BLK, MAJ, answer Q) · **Fix required + minors** · **Choose** IDs (decline others with a reason) ·
+**Stop here**. Nothing is edited until you answer.
 See [Review cycle in detail](#review-cycle-in-detail).
 
 ### `/eng:review-once`
@@ -237,8 +241,11 @@ See [Review cycle in detail](#review-cycle-in-detail).
    | `quick` | `code-reviewer` (also checks requirements) | ≤ 50 changed lines, no security triggers |
    | `standard` | `requirements-verifier` + `code-reviewer` + `performance-reviewer` if triage flags data/loops/I/O | Default |
    | `thorough` | standard + performance always + dedicated security reviewer + pr-review-toolkit agents, on opus | Auth, payments, migrations, public APIs |
+
+   Never below the project's minimum — set it in CLAUDE.md: `Minimum review depth: standard` (default `quick`).
 4. Confirms every 🔴/🟠 finding against the code; drops false positives.
-5. Report (tables): gates, requirements traceability, findings with IDs and severity, verdict.
+5. Report (tables): **coverage** (depth and why, reviewers run/skipped, files reviewed, what was not checked),
+   gates, requirements traceability, every finding with ID and proposed fix, verdict. Asks before fixing anything.
    Say "post it to the PR" to comment via `gh`.
 
 ### Planning commands (OpenSpec)
@@ -306,7 +313,9 @@ answer with tables only.
 ```
 Round 1  FULL review ──► findings ──► ledger
    ▼
-Remediation  fixes with TDD, answers questions, declines minors with reasons
+Checkpoint  full findings table + coverage → YOU choose: fix required · + minors · pick IDs · stop
+   ▼
+Remediation  only the chosen IDs: fixes with TDD, answers questions
    ▼
 Next round scope by highest severity fixed:  🔴 → FULL   🟠 → TARGETED   🟡/💡/❓ → VERIFY
    (later rounds read only the remediation diff; build + tests run in EVERY round)

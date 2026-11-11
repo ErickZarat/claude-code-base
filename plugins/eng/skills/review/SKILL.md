@@ -2,7 +2,7 @@
 name: review
 description: Review → fix → re-review rounds until merge-ready; severity decides each next round's scope; findings tracked in a ledger.
 disable-model-invocation: true
-argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rounds N]"
+argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rounds N] [--auto]"
 ---
 
 # Review cycle
@@ -68,8 +68,23 @@ Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) 
    unless the code changed in a way that makes them relevant again.
 3. Append the round's table to the ledger. If exit criteria are met → go to **Exit**.
 
-### Round N — Remediation (author)
-Work through findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGGESTION:
+### Round N — Checkpoint (mandatory unless the user passed `--auto`)
+**Never start remediation on your own.** After every review round:
+1. Show the user the round report in full — every finding as a row with its ID, area, location, the problem in one
+   line and the proposed fix — plus the **Coverage** section. Never summarise as "found some issues".
+2. Ask one question (use the AskUserQuestion tool when available; otherwise ask in text) and **end your turn**:
+   - **Fix required** — every BLK and MAJ, and answer every Q (MIN and S stay open for later)
+   - **Fix required + minors** — also every MIN; S only if trivial
+   - **Choose** — the user lists IDs to fix, and may decline others with a reason
+   - **Stop here** — leave the ledger as is; report what is still open
+3. Do not edit any file until the user answers. Record the decision in the ledger under the round
+   (`Decision: fix R1-BLK-1, R1-MAJ-2; declined R1-MIN-3 (user: out of scope)`). User-declined items are
+   `DECLINED (user)`; a declined BLK/MAJ means exit criteria cannot be met — say so, and end as `STOPPED BY USER`.
+4. No user available (scheduled/unattended run) and no `--auto` → stop after the report; never fix unasked.
+`--auto` (only when the user asked for it) skips this checkpoint, fixing BLK, MAJ, Q and MIN; stop conditions still apply.
+
+### Round N — Remediation (author) — only the IDs the user chose
+Work through the chosen findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGGESTION:
 - **Bugs / missing behaviour / missing tests:** TDD — write a failing test that reproduces the finding, show it fail,
   fix, show it pass (`tdd` skill). Never weaken an existing test to resolve a finding.
 - **Questions:** answer from code/spec. If the answer needs a product or business decision, ask the user and pause the loop.

@@ -22,6 +22,11 @@ TODO: language + version, framework, database, messaging, build tool.
 | Lint/format  | TODO    |
 | Run locally  | TODO    |
 
+## Review
+Minimum review depth: quick
+<!-- quick | standard | thorough. /eng:review never goes below this, whatever the triage suggests.
+     Use "standard" for production services; "thorough" for auth/payments-heavy code. -->
+
 ## Layout
 TODO: where domain code, adapters, config, tests and migrations live.
 

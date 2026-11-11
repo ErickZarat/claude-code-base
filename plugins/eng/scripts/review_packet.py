@@ -38,6 +38,8 @@ SECURITY_CODE_PATTERN = re.compile(
     r"trustAll|@PreAuthorize|@Secured|request\.(params|query|body))"
 )
 REQUIREMENT_PLAN_GLOB = "docs/plans/*.md"
+DEPTH_ORDER = ("quick", "standard", "thorough")
+MINIMUM_DEPTH_LINE = re.compile(r"^\s*Minimum review depth:\s*(quick|standard|thorough)\b", re.IGNORECASE | re.MULTILINE)
 
 
 def git(*args: str) -> str:
@@ -76,10 +78,26 @@ def requirement_sources() -> list[str]:
     return sources
 
 
-def suggested_depth(changed_line_count: int, security_review_needed: bool) -> str:
+def triage_depth(changed_line_count: int, security_review_needed: bool) -> str:
     if changed_line_count <= QUICK_DEPTH_MAX_CHANGED_LINES and not security_review_needed:
         return "quick"
     return "standard"
+
+
+def project_minimum_depth() -> str:
+    """'Minimum review depth: <level>' from the project's CLAUDE.md; quick when absent."""
+    claude_md = Path("CLAUDE.md")
+    match = MINIMUM_DEPTH_LINE.search(claude_md.read_text()) if claude_md.is_file() else None
+    return match.group(1).lower() if match else "quick"
+
+
+def suggested_depth(changed_line_count: int, security_review_needed: bool) -> tuple[str, str]:
+    """The deeper of triage's suggestion and the project minimum, with the reason."""
+    from_triage = triage_depth(changed_line_count, security_review_needed)
+    minimum = project_minimum_depth()
+    if DEPTH_ORDER.index(minimum) > DEPTH_ORDER.index(from_triage):
+        return minimum, f"project minimum (triage alone: {from_triage})"
+    return from_triage, f"triage: {changed_line_count} changed lines, security {'yes' if security_review_needed else 'no'}"
 
 
 def truncate(diff_text: str, max_lines: int) -> str:
@@ -106,7 +124,7 @@ def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
         f"{len(paths)} file(s), {changed_line_count} changed line(s)",
         "",
         "## Triage",
-        f"Suggested depth: {suggested_depth(changed_line_count, security_needed)}",
+        "Suggested depth: {} — {}".format(*suggested_depth(changed_line_count, security_needed)),
         f"- performance: {'yes' if performance_needed else 'no'}",
         f"- security: {'yes' if security_needed else 'no'}",
         "",

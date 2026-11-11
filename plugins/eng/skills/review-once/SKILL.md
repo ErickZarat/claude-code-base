@@ -32,7 +32,9 @@ Build, tests, lint (commands from CLAUDE.md); `gitleaks detect --no-banner --red
 if installed. A failing gate is a 🔴 BLOCKER. Pass a one-line result per gate to the reviewers.
 
 ## 4. Pick reviewers by depth
-Depth = `--depth` if given, else the packet's suggested depth. Launch the chosen reviewers in ONE message (parallel),
+Depth = `--depth` if given, else the packet's suggested depth — but never below the project's minimum: a
+`Minimum review depth: <quick|standard|thorough>` line in CLAUDE.md (absent = quick).
+Launch the chosen reviewers in ONE message (parallel),
 each with: packet path, gate results, ledger path (if any), scope. With a ledger, tell reviewers: match every finding
 against ALL ledger rows by fingerprint (component · problem class) and reuse the ID — variants of a known problem are
 not new findings.
@@ -56,11 +58,22 @@ Verdict: ✅ APPROVE · 🟠 APPROVE WITH COMMENTS · ❌ REQUEST CHANGES
 Gates: build ✅ tests ✅ lint ✅ gitleaks ✅ semgrep n/a
 Reviewers: <list> · false positives dropped: <n>
 
+## Coverage                — what this round did and did NOT check, so the user can judge it
+Depth: <d> (<why: --depth / triage: N lines, security yes/no / project minimum>)
+Reviewers run: <agent (model)>, …          Skipped: <agent — reason, e.g. "performance — triage found no data/loop/I/O changes">
+Files: <reviewed>/<changed> (<list any not reviewed: truncated diff, generated, binary>)
+Requirement sources: <files / PR body / none>
+Not checked: <anything outside this depth — e.g. "no dedicated security reviewer (quick)", "semgrep not installed">
+Deeper option: `--depth <next level>` adds <reviewers>
+
 ## Requirements            (requirements-verifier table, or code-reviewer's check in quick mode)
 ## Previous findings       | ID | Was | Now | Note |          (if ledger)
-## New findings            | ID | Area | Location | Finding | Fix |
+## New findings            | ID | Area | Location | Finding | Proposed fix |     (every finding listed — none summarised away)
 IDs: `R<round>-<BLK|MAJ|MIN|Q|S>-<n>`, numbered after the ledger's highest number (see the review skill).
 ```
 Verdict: any 🔴/🟠 open or ❓ unanswered → REQUEST CHANGES · only 🟡/💡 → APPROVE WITH COMMENTS · none → APPROVE.
+
+Standalone (not inside the review cycle): end with the report and ask whether to fix the findings
+(that continues as the review cycle from its checkpoint) — never start fixing on your own.
 
 Post to GitHub only if the user asks (`gh pr review <n> --comment --body-file <report>`). Never approve or merge.

@@ -129,3 +129,30 @@ def test_huge_diffs_are_truncated_with_a_notice(repo):
 
     assert "diff truncated" in packet
     assert len(packet.splitlines()) < 400
+
+
+def test_project_minimum_depth_raises_the_suggestion(repo):
+    write(repo, "CLAUDE.md", "# Project\n\n## Review\nMinimum review depth: standard\n")
+    write(repo, "docs/guide.md", "tiny docs change\n")
+    commit_all(repo)
+
+    packet = build_packet(repo)
+
+    assert "Suggested depth: standard" in packet
+    assert "project minimum" in packet
+
+
+def test_minimum_never_lowers_the_triage_suggestion(repo):
+    write(repo, "CLAUDE.md", "Minimum review depth: quick\n")
+    write(repo, "src/Big.kt", "".join(f"val value{i} = {i}\n" for i in range(120)))
+    commit_all(repo)
+
+    assert "Suggested depth: standard" in build_packet(repo)
+
+
+def test_thorough_minimum_is_respected(repo):
+    write(repo, "CLAUDE.md", "Minimum review depth: thorough\n")
+    write(repo, "src/A.kt", "class A\n")
+    commit_all(repo)
+
+    assert "Suggested depth: thorough" in build_packet(repo)
