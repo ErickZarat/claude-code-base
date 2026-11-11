@@ -135,3 +135,39 @@ def test_large_tasks_are_warned(tmp_path):
 def test_strict_mode_fails_on_warnings(tmp_path):
     spec = GOOD_SPEC.replace("status PENDING", "status PENDING as needed")
     assert lint(make_change(tmp_path, spec=spec), "--strict").returncode == 1
+
+
+# --- v2.9: plan view for parallel work ------------------------------------------------------------
+
+LANES_TASKS = """## 1. Refunds
+- [ ] 1.1 Refund creation table (size: S)
+- [ ] 1.2 Refund creation endpoint (after: 1.1)
+- [ ] 1.3 Reject refund above total (after: 1.2)
+## 2. Emails
+- [ ] 2.1 Refund creation email template
+- [ ] 2.2 Send refund creation email (after: 2.1, 1.2)
+"""
+
+
+def test_plan_shows_levels_critical_path_and_parallel_capacity(tmp_path):
+    output = lint(make_change(tmp_path, tasks=LANES_TASKS)).stdout
+
+    assert "Plan" in output
+    assert "level 1: 1.1, 2.1" in output
+    assert "level 2: 1.2" in output
+    assert "level 3: 1.3, 2.2" in output
+    assert "critical path: 1.1 → 1.2 → 1.3" in output or "critical path: 1.1 → 1.2 → 2.2" in output
+    assert "max parallel: 2" in output
+    assert "single chain" not in output
+
+
+def test_single_chain_is_warned(tmp_path):
+    tasks = "## 1. Refunds\n- [ ] 1.1 Refund creation a\n- [ ] 1.2 Refund creation b (after: 1.1)\n- [ ] 1.3 Refund creation c (after: 1.2)\n"
+    output = lint(make_change(tmp_path, tasks=tasks)).stdout
+    assert "WARN" in output and "single chain" in output
+
+
+def test_done_tasks_are_left_out_of_the_plan(tmp_path):
+    tasks = "## 1. Refunds\n- [x] 1.1 Refund creation a\n- [ ] 1.2 Refund creation b (after: 1.1)\n- [ ] 1.3 Refund creation c\n"
+    output = lint(make_change(tmp_path, tasks=tasks)).stdout
+    assert "level 1: 1.2, 1.3" in output

@@ -31,7 +31,7 @@ TASKS_MD = """# Tasks
 class FakeGitHubClient:
     """In-memory stand-in for GitHub. Issue ids are number * 1000 to catch number/id mix-ups."""
 
-    def __init__(self, sub_issues_supported: bool = True):
+    def __init__(self, sub_issues_supported: bool = True, dependencies_supported: bool = True):
         self.issues: dict[int, dict] = {}
         self.sub_issue_links: list[tuple[int, int]] = []
         self.labels: set[str] = set()
@@ -40,10 +40,14 @@ class FakeGitHubClient:
         self.open_pr_titles: list[str] = []
         self.closed_issue_numbers: set[int] = set()
         self.milestones: dict[int, dict] = {}
+        self.dependencies_supported = dependencies_supported
+        self.open_prs: list[dict] = []  # {"number", "title", "author", "draft"}
+        self.login = "me"
 
     def create_issue(self, title, body, labels, milestone=None):
         number = len(self.issues) + 100
-        self.issues[number] = {"title": title, "body": body, "labels": list(labels), "milestone": milestone}
+        self.issues[number] = {"title": title, "body": body, "labels": list(labels), "milestone": milestone,
+                               "assignees": [], "blocked_by": []}
         return github_sync.CreatedIssue(number=number, issue_id=number * 1000)
 
     def ensure_milestone(self, title, description):
@@ -73,7 +77,37 @@ class FakeGitHubClient:
         return True
 
     def open_pull_request_titles(self):
-        return list(self.open_pr_titles)
+        return list(self.open_pr_titles) + [pr["title"] for pr in self.open_prs]
+
+    def open_pull_requests(self):
+        return [dict(pr) for pr in self.open_prs] + [{"number": 0, "title": title, "author": "?", "draft": False}
+                                                     for title in self.open_pr_titles]
+
+    def issue_body(self, number):
+        return self.issues[number]["body"]
+
+    def add_blocked_by(self, number, blocking_issue_id):
+        if not self.dependencies_supported:
+            return False
+        blocking = blocking_issue_id // 1000
+        if blocking not in self.issues[number]["blocked_by"]:
+            self.issues[number]["blocked_by"].append(blocking)
+        return True
+
+    def blocked_by(self, number):
+        return list(self.issues[number]["blocked_by"])
+
+    def issue_id(self, number):
+        return number * 1000
+
+    def assignees(self, number):
+        return list(self.issues[number]["assignees"])
+
+    def add_assignee(self, number, login):
+        self.issues[number]["assignees"].append(login)
+
+    def current_login(self):
+        return self.login
 
     def is_issue_open(self, number):
         return number not in self.closed_issue_numbers
@@ -513,3 +547,145 @@ def test_blocked_tasks_are_explained(change_dir):
     blocked = github_sync.blocked_tasks(change_dir, client)
 
     assert blocked == {mapping["1.2"]: [mapping["1.1"]], mapping["1.3"]: [mapping["1.2"]]}
+
+
+# --- v2.9: team coordination ---------------------------------------------------------------------
+
+def synced_dependent_change(change_dir, client=None):
+    (change_dir / "tasks.md").write_text(DEPENDENT_TASKS)
+    client = client or FakeGitHubClient()
+    sync(change_dir, client)
+    return client, json.loads((change_dir / "github.json").read_text())["items"]
+
+
+def test_sync_creates_native_blocked_by_links(change_dir):
+    client, items = synced_dependent_change(change_dir)
+
+    assert client.blocked_by(items["1.2"]) == [items["1.1"]]
+    assert client.blocked_by(items["1.3"]) == [items["1.2"]]
+
+
+def test_native_dependency_failure_falls_back_to_body_text_with_warning(change_dir):
+    (change_dir / "tasks.md").write_text(DEPENDENT_TASKS)
+    client = FakeGitHubClient(dependencies_supported=False)
+
+    report = sync(change_dir, client)
+
+    items = json.loads((change_dir / "github.json").read_text())["items"]
+    assert f"Depends on #{items['1.1']}" in client.issue_body(items["1.2"])
+    assert any("blocked-by" in warning for warning in report.warnings)
+
+
+def test_resync_adds_dependencies_planned_later(change_dir):
+    client, items = synced_dependent_change(change_dir)
+    tasks = change_dir / "tasks.md"
+    tasks.write_text(tasks.read_text().replace("1.1 [TASK-%d] Add refunds table migration (size: S)" % items["1.1"],
+                                               "1.1 [TASK-%d] Add refunds table migration (size: S)" % items["1.1"])
+                     + "- [ ] 1.4 Refund emails (after: 1.1, 1.3)\n")
+    tasks.write_text(tasks.read_text().replace("Reject refunds above total (after: 1.2)", "Reject refunds above total (after: 1.1, 1.2)"))
+
+    sync(change_dir, client)
+
+    items = json.loads((change_dir / "github.json").read_text())["items"]
+    assert sorted(client.blocked_by(items["1.3"])) == sorted([items["1.1"], items["1.2"]])
+    assert f"Depends on #{items['1.1']}" in client.issue_body(items["1.3"])
+    assert sorted(client.blocked_by(items["1.4"])) == sorted([items["1.1"], items["1.3"]])
+
+
+def test_dependency_discovered_later_is_recorded_on_github_only(change_dir):
+    client, items = synced_dependent_change(change_dir)
+    client.closed_issue_numbers.update({items["1.1"]})
+    tasks_before = (change_dir / "tasks.md").read_text()
+
+    github_sync.block(client, items["1.2"], by=items["1.3"])
+
+    assert items["1.3"] in client.blocked_by(items["1.2"])
+    assert f"Depends on #{items['1.3']}" in client.issue_body(items["1.2"])
+    assert (change_dir / "tasks.md").read_text() == tasks_before
+    assert github_sync.next_task(change_dir, client) is None  # 1.2 now waits for 1.3, which waits for 1.2's... 1.3 blocked
+    assert items["1.2"] in github_sync.blocked_tasks(change_dir, client)
+
+
+def test_claim_assigns_me_and_refuses_someone_elses_ticket(change_dir):
+    client, items = synced_dependent_change(change_dir)
+
+    github_sync.claim(client, items["1.1"])
+    assert client.assignees(items["1.1"]) == ["me"]
+
+    client.add_assignee(items["1.2"], "dev-b")
+    with pytest.raises(github_sync.ClaimError, match="dev-b"):
+        github_sync.claim(client, items["1.2"])
+    github_sync.claim(client, items["1.2"], force=True)
+    assert "me" in client.assignees(items["1.2"])
+
+
+def test_next_skips_tickets_claimed_by_others_and_resumes_mine_first():
+    tasks = """## 1. Lanes
+- [ ] 1.1 Lane one first step
+- [ ] 1.2 Lane two first step
+- [ ] 1.3 Lane two second step
+"""
+    import tempfile
+    directory = Path(tempfile.mkdtemp()) / "openspec/changes/lanes"
+    directory.mkdir(parents=True)
+    (directory / "tasks.md").write_text(tasks)
+    client = FakeGitHubClient()
+    sync(directory, client)
+    items = json.loads((directory / "github.json").read_text())["items"]
+
+    client.add_assignee(items["1.1"], "dev-b")
+    assert github_sync.next_task(directory, client) == items["1.2"]
+
+    client.add_assignee(items["1.3"], "me")
+    assert github_sync.next_task(directory, client) == items["1.3"]  # resume my own work first
+
+
+def test_status_board_shows_who_is_on_what(change_dir):
+    client, items = synced_dependent_change(change_dir)
+    client.add_assignee(items["1.1"], "dev-b")
+    client.open_prs.append({"number": 7, "title": f"[TASK-{items['1.1']}] feat: migration", "author": "dev-b", "draft": False})
+
+    rows = {row.issue_number: row for row in github_sync.status(change_dir, client)}
+
+    assert rows[items["1.1"]].state == "in review" and rows[items["1.1"]].who == "dev-b" and rows[items["1.1"]].pull_request == 7
+    assert rows[items["1.2"]].state == "blocked" and rows[items["1.2"]].waiting_for == [items["1.1"]]
+
+    client.open_prs.clear()
+    client.closed_issue_numbers.add(items["1.1"])
+    rows = {row.issue_number: row for row in github_sync.status(change_dir, client)}
+    assert rows[items["1.1"]].state == "done"
+    assert rows[items["1.2"]].state == "ready"
+
+
+def test_draft_pr_or_assignee_means_in_progress(change_dir):
+    client, items = synced_dependent_change(change_dir)
+    client.add_assignee(items["1.1"], "dev-b")
+    rows = {row.issue_number: row for row in github_sync.status(change_dir, client)}
+    assert rows[items["1.1"]].state == "in progress"
+
+
+def test_sync_ticks_tasks_whose_ticket_is_closed(change_dir):
+    client, items = synced_dependent_change(change_dir)
+    client.closed_issue_numbers.add(items["1.1"])
+
+    sync(change_dir, client)
+
+    text = (change_dir / "tasks.md").read_text()
+    assert f"- [x] 1.1 [TASK-{items['1.1']}]" in text
+    assert f"- [ ] 1.2 [TASK-{items['1.2']}]" in text
+
+
+def test_gh_cli_client_maps_open_pull_requests():
+    payload = json.dumps([{"number": 7, "title": "[TASK-1] feat: x", "author": {"login": "dev-b"}, "isDraft": True}])
+    client = github_sync.GhCliClient("acme/shop", run=lambda command: payload)
+    assert client.open_pull_requests() == [{"number": 7, "title": "[TASK-1] feat: x", "author": "dev-b", "draft": True}]
+
+
+def test_gh_cli_client_treats_unavailable_dependencies_as_none():
+    import subprocess as sp
+
+    def failing_run(command):
+        raise sp.CalledProcessError(1, command)
+
+    client = github_sync.GhCliClient("acme/shop", run=failing_run)
+    assert client.blocked_by(3) == [] and client.add_blocked_by(3, 4000) is False

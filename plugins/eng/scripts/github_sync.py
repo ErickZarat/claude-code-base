@@ -72,6 +72,21 @@ class SyncError(Exception):
     """The change cannot be synced (missing files, unreadable mapping)."""
 
 
+class ClaimError(Exception):
+    """The ticket is already assigned to someone else."""
+
+
+@dataclass
+class StatusRow:
+    key: str
+    title: str
+    issue_number: int | None
+    state: str  # done · in review · in progress · blocked · ready
+    who: str = ""
+    pull_request: int | None = None
+    waiting_for: list[int] = field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class CreatedIssue:
     number: int
@@ -149,6 +164,14 @@ class GitHubClient(Protocol):
     def open_pull_request_titles(self) -> list[str]: ...
     def is_issue_open(self, number: int) -> bool: ...
     def issue_type_and_labels(self, number: int) -> tuple[str | None, list[str]]: ...
+    def open_pull_requests(self) -> list[dict]: ...  # {"number", "title", "author", "draft"}
+    def issue_body(self, number: int) -> str: ...
+    def issue_id(self, number: int) -> int: ...
+    def add_blocked_by(self, number: int, blocking_issue_id: int) -> bool: ...
+    def blocked_by(self, number: int) -> list[int]: ...
+    def assignees(self, number: int) -> list[str]: ...
+    def add_assignee(self, number: int, login: str) -> None: ...
+    def current_login(self) -> str: ...
 
 
 def run_command(command: list[str]) -> str:
@@ -218,8 +241,47 @@ class GhCliClient:
         issue = json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}"]))
         return issue["state"] == "open"
 
+    def _issue(self, number: int) -> dict:
+        return json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}"]))
+
+    def open_pull_requests(self) -> list[dict]:
+        pulls = json.loads(self.run(["gh", "pr", "list", "-R", self.repo, "--state", "open",
+                                     "--json", "number,title,author,isDraft", "--limit", "200"]))
+        return [{"number": pull["number"], "title": pull["title"], "author": (pull.get("author") or {}).get("login", "?"),
+                 "draft": pull.get("isDraft", False)} for pull in pulls]
+
+    def issue_body(self, number: int) -> str:
+        return self._issue(number).get("body") or ""
+
+    def issue_id(self, number: int) -> int:
+        return self._issue(number)["id"]
+
+    def add_blocked_by(self, number: int, blocking_issue_id: int) -> bool:
+        try:
+            self.run(["gh", "api", "-X", "POST", f"repos/{self.repo}/issues/{number}/dependencies/blocked_by",
+                      "-F", f"issue_id={blocking_issue_id}"])
+            return True
+        except subprocess.CalledProcessError:
+            return False  # already linked, or native dependencies unavailable
+
+    def blocked_by(self, number: int) -> list[int]:
+        try:
+            blocking = json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}/dependencies/blocked_by"]))
+        except subprocess.CalledProcessError:
+            return []
+        return [issue["number"] for issue in blocking]
+
+    def assignees(self, number: int) -> list[str]:
+        return [person["login"] for person in self._issue(number).get("assignees", [])]
+
+    def add_assignee(self, number: int, login: str) -> None:
+        self.run(["gh", "api", "-X", "POST", f"repos/{self.repo}/issues/{number}/assignees", "-f", f"assignees[]={login}"])
+
+    def current_login(self) -> str:
+        return json.loads(self.run(["gh", "api", "user"]))["login"]
+
     def issue_type_and_labels(self, number: int) -> tuple[str | None, list[str]]:
-        issue = json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}"]))
+        issue = self._issue(number)
         issue_type = (issue.get("type") or {}).get("name")  # native issue types exist only on org repos
         return issue_type, [label["name"] for label in issue.get("labels", [])]
 
@@ -347,6 +409,68 @@ def epic_body(change_dir: Path, items: list[WorkItem], change_path: str) -> str:
     )
 
 
+DEPENDS_ON_LINE = re.compile(r"(?im)^Depends on #(\d+)\s*$")
+
+
+def with_dependency_lines(body: str, dependency_numbers: list[int]) -> str:
+    """Body with a 'Depends on #n' line for every dependency (existing lines kept, missing ones prepended)."""
+    present = {int(number) for number in DEPENDS_ON_LINE.findall(body)}
+    missing = [f"Depends on #{number}" for number in dependency_numbers if number not in present]
+    return "\n".join(missing + [body]) if missing else body
+
+
+def link_planned_dependencies(client: GitHubClient, items: list[WorkItem], numbers_by_key: dict[str, int],
+                              report: SyncReport) -> None:
+    """Make every planned `after:` dependency a native 'blocked by' link and a 'Depends on' line on the ticket."""
+    native_supported = True
+    for item in items:
+        if item.done or not item.issue_number or not item.after:
+            continue
+        wanted = [numbers_by_key[key] for key in item.after if key in numbers_by_key]
+        existing_links = set(client.blocked_by(item.issue_number))
+        for dependency in wanted:
+            if dependency not in existing_links and native_supported:
+                native_supported = client.add_blocked_by(item.issue_number, client.issue_id(dependency))
+        body = client.issue_body(item.issue_number)
+        updated = with_dependency_lines(body, wanted)
+        if updated != body:
+            client.update_issue_body(item.issue_number, updated)
+    if not native_supported:
+        report.warnings.append("Native blocked-by dependencies are unavailable here; dependencies are kept as "
+                               "'Depends on #n' lines in the tickets instead.")
+
+
+def tick_closed_tasks(client: GitHubClient, items: list[WorkItem], lines: list[str]) -> None:
+    """A closed ticket means its PR was merged: tick the task in tasks.md (task PRs never edit tasks.md)."""
+    for item in items:
+        if item.done or not item.issue_number or not TASK_LINE.match(lines[item.line_index]):
+            continue
+        if not client.is_issue_open(item.issue_number):
+            lines[item.line_index] = lines[item.line_index].replace("- [ ]", "- [x]", 1)
+            item.done = True
+
+
+def block(client: GitHubClient, issue_number: int, by: int) -> bool:
+    """Record a dependency discovered during the work — on GitHub only, so tasks.md never conflicts."""
+    native = client.add_blocked_by(issue_number, client.issue_id(by))
+    body = client.issue_body(issue_number)
+    updated = with_dependency_lines(body, [by])
+    if updated != body:
+        client.update_issue_body(issue_number, updated)
+    return native
+
+
+def claim(client: GitHubClient, issue_number: int, force: bool = False) -> str:
+    """Assign the ticket to me before starting, so a teammate's `next` skips it."""
+    me = client.current_login()
+    others = [person for person in client.assignees(issue_number) if person != me]
+    if others and not force:
+        raise ClaimError(f"#{issue_number} is assigned to {', '.join(others)} — coordinate first, or use --force")
+    if me not in client.assignees(issue_number):
+        client.add_assignee(issue_number, me)
+    return me
+
+
 def milestone_description(change_dir: Path, change_path: str) -> str:
     first_paragraph = next((block.strip() for block in proposal_excerpt(change_dir).split("\n\n")[1:] if block.strip()), "")
     return f"OpenSpec change {change_path}. {first_paragraph}".strip()[:1000]
@@ -422,6 +546,10 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
         if use_epic and not client.add_sub_issue(report.epic_number, created.issue_id):
             report.warnings.append(f"#{created.number}: sub-issue link failed; it is still listed in the epic checklist.")
 
+    numbers_by_key.update({item.key: item.issue_number for item in items if item.issue_number})
+    link_planned_dependencies(client, items, numbers_by_key, report)
+    tick_closed_tasks(client, items, lines)
+
     if use_epic:
         client.update_issue_body(report.epic_number, epic_body(change_dir, items, change_path))
 
@@ -444,16 +572,19 @@ def _items_with_numbers(change_dir: Path) -> list[WorkItem]:
     return items
 
 
+def _dependency_numbers(item: WorkItem, items_by_key: dict[str, WorkItem], client: GitHubClient) -> set[int]:
+    """Planned (tasks.md `after:`) + discovered (native blocked-by links, 'Depends on #n' lines) dependencies."""
+    planned = {items_by_key[key].issue_number for key in item.after if key in items_by_key and items_by_key[key].issue_number}
+    discovered = set(client.blocked_by(item.issue_number))
+    discovered |= {int(number) for number in DEPENDS_ON_LINE.findall(client.issue_body(item.issue_number))}
+    return planned | discovered
+
+
 def _unfinished_dependencies(item: WorkItem, items_by_key: dict[str, WorkItem], client: GitHubClient) -> list[int]:
-    """Issue numbers of dependencies that are neither ticked in tasks.md nor closed (= merged) on GitHub."""
-    blocking = []
-    for key in item.after:
-        dependency = items_by_key.get(key)
-        if dependency is None or dependency.done:
-            continue
-        if dependency.issue_number is None or client.is_issue_open(dependency.issue_number):
-            blocking.append(dependency.issue_number)
-    return blocking
+    """Dependencies that are neither ticked in tasks.md nor closed (= merged) on GitHub."""
+    done_numbers = {other.issue_number for other in items_by_key.values() if other.done and other.issue_number}
+    return sorted(number for number in _dependency_numbers(item, items_by_key, client)
+                  if number not in done_numbers and client.is_issue_open(number))
 
 
 def blocked_tasks(change_dir: Path, client: GitHubClient) -> dict[int, list[int]]:
@@ -462,7 +593,7 @@ def blocked_tasks(change_dir: Path, client: GitHubClient) -> dict[int, list[int]
     items_by_key = {item.key: item for item in items}
     blocked = {}
     for item in items:
-        if item.done or item.issue_number is None:
+        if item.done or item.issue_number is None or not client.is_issue_open(item.issue_number):
             continue
         waiting_for = _unfinished_dependencies(item, items_by_key, client)
         if waiting_for:
@@ -471,19 +602,55 @@ def blocked_tasks(change_dir: Path, client: GitHubClient) -> dict[int, list[int]
 
 
 def next_task(change_dir: Path, client: GitHubClient) -> int | None:
-    """First ticket in tasks.md order that is not done, still open, has no open PR and no unfinished dependency."""
+    """Next ticket to work on: my own unfinished claim first, else the first unclaimed ticket in tasks.md order that
+    is open, has no open PR and no unfinished dependency."""
     items = _items_with_numbers(change_dir)
     items_by_key = {item.key: item for item in items}
     open_pr_titles = " ".join(client.open_pull_request_titles())
+    me = client.current_login()
+    mine, unclaimed = [], []
     for item in items:
         number = item.issue_number
-        if item.done or number is None or has_tag_for(number, open_pr_titles):
+        if item.done or number is None or has_tag_for(number, open_pr_titles) or not client.is_issue_open(number):
             continue
         if _unfinished_dependencies(item, items_by_key, client):
             continue
-        if client.is_issue_open(number):
-            return number
-    return None
+        assigned = client.assignees(number)
+        if me in assigned:
+            mine.append(number)
+        elif not assigned:
+            unclaimed.append(number)
+    return (mine or unclaimed or [None])[0]
+
+
+def status(change_dir: Path, client: GitHubClient) -> list[StatusRow]:
+    """One row per ticket: done · in review · in progress · blocked · ready, with who and what it waits for."""
+    items = _items_with_numbers(change_dir)
+    items_by_key = {item.key: item for item in items}
+    pulls = client.open_pull_requests()
+    rows = []
+    for item in items:
+        number = item.issue_number
+        row = StatusRow(item.key, item.title, number, "ready")
+        if number is None:
+            row.state = "done" if item.done else "not synced"
+            rows.append(row)
+            continue
+        pull = next((pull for pull in pulls if has_tag_for(number, pull["title"])), None)
+        assigned = client.assignees(number)
+        row.who = pull["author"] if pull else ", ".join(assigned)
+        row.pull_request = pull["number"] if pull else None
+        if item.done or not client.is_issue_open(number):
+            row.state = "done"
+        elif pull and not pull["draft"]:
+            row.state = "in review"
+        elif pull or assigned:
+            row.state = "in progress"
+        else:
+            row.waiting_for = _unfinished_dependencies(item, items_by_key, client)
+            row.state = "blocked" if row.waiting_for else "ready"
+        rows.append(row)
+    return rows
 
 
 # --- CLI ----------------------------------------------------------------------------------------
@@ -504,6 +671,17 @@ def main() -> int:
     next_parser = commands.add_parser("next")
     next_parser.add_argument("--change", required=True)
     next_parser.add_argument("--repo")
+    status_parser = commands.add_parser("status", help="board: done / in review / in progress / blocked / ready")
+    status_parser.add_argument("--change", required=True)
+    status_parser.add_argument("--repo")
+    claim_parser = commands.add_parser("claim", help="assign the ticket to me before starting")
+    claim_parser.add_argument("--issue", type=int, required=True)
+    claim_parser.add_argument("--force", action="store_true")
+    claim_parser.add_argument("--repo")
+    block_parser = commands.add_parser("block", help="record a dependency discovered during the work")
+    block_parser.add_argument("--issue", type=int, required=True)
+    block_parser.add_argument("--by", type=int, required=True)
+    block_parser.add_argument("--repo")
     tag_parser = commands.add_parser("tag", help="print the tag for an issue, e.g. [BUG-10]")
     branch_parser = commands.add_parser("branch")
     title_parser = commands.add_parser("title")
@@ -527,10 +705,36 @@ def main() -> int:
             print(pr_title(arguments.issue, arguments.type, arguments.title, kind))
         return 0
 
+    if arguments.command in ("claim", "block"):
+        client = GhCliClient(arguments.repo or detect_repo())
+        if arguments.command == "block":
+            native = block(client, arguments.issue, arguments.by)
+            print(f"#{arguments.issue} now depends on #{arguments.by}" + ("" if native else " (body note only — native links unavailable)"))
+            return 0
+        try:
+            print(f"#{arguments.issue} assigned to {claim(client, arguments.issue, arguments.force)}")
+        except ClaimError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 1
+        return 0
+
     change_dir = Path(arguments.change)
     repo = arguments.repo or load_mapping(change_dir).get("repo") or detect_repo()
     client = GhCliClient(repo)
     try:
+        if arguments.command == "status":
+            icons = {"done": "✅", "in review": "👀", "in progress": "🔨", "blocked": "⛔", "ready": "🟢", "not synced": "·"}
+            rows = status(change_dir, client)
+            for row in rows:
+                detail = f" — waits for {', '.join(f'#{n}' for n in row.waiting_for)}" if row.waiting_for else ""
+                pr = f" PR #{row.pull_request}" if row.pull_request else ""
+                print(f"{icons.get(row.state, '?')} {row.state:<11} #{row.issue_number or '-':<5} {row.key:<5} {row.title}"
+                      f"{f' ({row.who})' if row.who else ''}{pr}{detail}")
+            ready = sum(row.state == "ready" for row in rows)
+            print(f"Ready to start now: {ready} · in progress/review: "
+                  f"{sum(row.state in ('in progress', 'in review') for row in rows)} · blocked: "
+                  f"{sum(row.state == 'blocked' for row in rows)} · done: {sum(row.state == 'done' for row in rows)}/{len(rows)}")
+            return 0
         if arguments.command == "next":
             number = next_task(change_dir, client)
             print(number if number else "none")

@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from openspec_model import Requirement, Task, change_spec_files, parse_spec, parse_tasks  # noqa: E402
+from openspec_model import Requirement, Task, change_spec_files, parse_spec, parse_tasks, plan_levels  # noqa: E402
 
 VAGUE_WORDS = re.compile(
     r"\b(quickly|fast|efficient(?:ly)?|properly|appropriate(?:ly)?|user-friendly|easy|easily|intuitive(?:ly)?|"
@@ -34,11 +34,12 @@ NFR_HEADING = re.compile(r"(?im)^#+\s*non-functional")
 STOP_WORDS = {"with", "from", "that", "this", "when", "then", "shall", "must", "should", "into", "for", "the", "and",
               "support", "allow", "system", "user", "users", "data", "able"}
 LARGE_SIZES = {"L", "XL"}
+MIN_TASKS_FOR_CHAIN_WARNING = 3
 
 
 class Report:
     def __init__(self, base: Path):
-        self.base, self.errors, self.warnings = base, [], []
+        self.base, self.errors, self.warnings, self.plan = base, [], [], []
 
     def location(self, file: Path, line: int | None) -> str:
         try:
@@ -119,6 +120,21 @@ def check_task_dependencies(tasks: list[Task], tasks_file: Path, report: Report)
         visit(key, [])
 
 
+def describe_plan(tasks: list[Task], tasks_file: Path, report: Report) -> None:
+    """Dependency levels (what can run in parallel), the critical path, and a warning when only one dev can work."""
+    levels, critical_path = plan_levels(tasks)
+    if not levels:
+        return
+    report.plan.append("Plan (open tasks by dependency level — same level can run in parallel):")
+    report.plan.extend(f"  level {number}: {', '.join(keys)}" for number, keys in enumerate(levels, start=1))
+    max_parallel = max(len(keys) for keys in levels)
+    report.plan.append(f"  critical path: {' → '.join(critical_path)} · max parallel: {max_parallel}")
+    open_count = sum(len(keys) for keys in levels)
+    if max_parallel == 1 and open_count >= MIN_TASKS_FOR_CHAIN_WARNING:
+        report.warn(tasks_file, None, "tasks form a single chain — only one dev can work at a time; "
+                                      "check whether every 'after:' is a real dependency")
+
+
 def lint_change(change_dir: Path) -> Report:
     report = Report(Path.cwd().resolve())
     spec_files = change_spec_files(change_dir)
@@ -135,6 +151,7 @@ def lint_change(change_dir: Path) -> Report:
             report.error(tasks_file, None, "tasks.md has no tasks ('- [ ] 1.1 …')")
         check_task_coverage(requirements, tasks, tasks_file, report)
         check_task_dependencies(tasks, tasks_file, report)
+        describe_plan(tasks, tasks_file, report)
 
     planning_text = " ".join((change_dir / name).read_text() for name in ("proposal.md", "design.md")
                              if (change_dir / name).is_file())
@@ -151,7 +168,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     report = lint_change(Path(arguments.change))
-    for line in report.errors + report.warnings:
+    for line in report.errors + report.warnings + report.plan:
         print(line)
     print(f"{len(report.errors)} error(s), {len(report.warnings)} warning(s)")
     failed = bool(report.errors) or (arguments.strict and bool(report.warnings))

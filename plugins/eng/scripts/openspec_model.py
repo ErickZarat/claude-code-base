@@ -128,3 +128,29 @@ def change_spec_files(change_dir: Path) -> list[Path]:
 
 def main_spec_files(openspec_dir: Path) -> list[Path]:
     return sorted((openspec_dir / "specs").glob("*/spec.md")) if (openspec_dir / "specs").is_dir() else []
+
+
+def plan_levels(tasks: list[Task]) -> tuple[list[list[str]], list[str]]:
+    """Open tasks grouped by dependency depth (level 1 = can start now) and the longest dependency chain.
+    Done tasks count as satisfied; unknown keys and cycles are ignored here (spec_lint reports them)."""
+    open_tasks = {task.key: task for task in tasks if not task.done}
+    depth: dict[str, int] = {}
+    longest_chain: dict[str, list[str]] = {}
+
+    def resolve(key: str, visiting: frozenset) -> int:
+        if key in depth:
+            return depth[key]
+        best_depth, best_chain = 1, [key]
+        for dependency in open_tasks[key].after:
+            if dependency in open_tasks and dependency not in visiting:
+                dependency_depth = resolve(dependency, visiting | {key})
+                if dependency_depth + 1 > best_depth:
+                    best_depth, best_chain = dependency_depth + 1, longest_chain[dependency] + [key]
+        depth[key], longest_chain[key] = best_depth, best_chain
+        return best_depth
+
+    for key in open_tasks:
+        resolve(key, frozenset({key}))
+    levels = [[key for key in open_tasks if depth[key] == level] for level in range(1, max(depth.values(), default=0) + 1)]
+    critical = max(longest_chain.values(), key=len, default=[])
+    return levels, critical
