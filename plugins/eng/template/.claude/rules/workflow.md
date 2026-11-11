@@ -28,7 +28,9 @@
 
 ## Git
 - Small commits with clear messages (Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
-- Working on a GitHub ticket: one branch and one PR per ticket; every commit message and the PR title start with
-  `[ISSUE-<n>] ` (e.g. `[ISSUE-43] feat(refunds): …`); the PR body has `Closes #<n>`. No ticket: `[NO-ISSUE] `.
+- Working on a GitHub ticket: one branch and one PR per ticket; every commit message and the PR title start with the
+  ticket tag `[<KIND>-<n>] ` — KIND from the issue type or type label (BUG, FEATURE, TASK, STORY, CHORE, SPIKE), else
+  ISSUE (e.g. `[BUG-10] fix(refunds): …`, `[TASK-43] feat: …`); the PR body has `Closes #<n>` with the same number.
+  No ticket: `[NO-ISSUE] `.
 - Every task PR gets `/eng:dod` and the review cycle before it is marked ready. Never merge on your own.
 - Never force-push, hard-reset, or rewrite shared history. Never commit generated secrets, `.env` files or build output.

@@ -1,6 +1,6 @@
 ---
 name: epic
-description: Sync an OpenSpec change to GitHub — a milestone (or parent issue) plus one ticket per task, tagged [ISSUE-n] in tasks.md.
+description: Sync an OpenSpec change to GitHub — a milestone (or parent issue) plus one ticket per task, tagged [TASK-n] in tasks.md.
 disable-model-invocation: true
 argument-hint: "[change-name] [--tracking milestone|epic|both] [--group-by section] [--dry-run]"
 ---
@@ -28,7 +28,7 @@ A change keeps the mode it was first synced with unless `--tracking` is given.
 5. **Preview:** `SYNC sync --change openspec/changes/<change> [--tracking …] [--group-by section] --dry-run`. Show the list.
 6. **Create:** same command without `--dry-run`. Report the milestone / issue links, created ticket numbers and every
    warning (e.g. autolink needs repo admin).
-7. **Commit the mapping** (`tasks.md` with `[ISSUE-n]` tags + `github.json`):
+7. **Commit the mapping** (`tasks.md` with `[TASK-n]` tags + `github.json`):
    `[NO-ISSUE] chore(openspec): link <change> tasks to GitHub issues`.
    If the default branch is protected, leave the changes uncommitted — `/eng:task` carries them into the first task's PR.
 8. **One-time repo setup** (ask; needs admin):

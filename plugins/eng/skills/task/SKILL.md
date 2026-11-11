@@ -8,7 +8,9 @@ argument-hint: "[issue# | next] [--depth quick|standard|thorough] [--stack] [--a
 # Work one ticket → one PR
 
 `SYNC` = `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/github_sync.py"` (fallback path: see the epic skill).
-`<n>` = ticket number, `<tag>` = `[ISSUE-<n>]`. `github.json` in the change folder gives the milestone / epic.
+`<n>` = ticket number, `<tag>` = `$(SYNC tag --issue <n>)` — `[<KIND>-<n>]` where KIND comes from the issue's type, else
+its type label (bug → BUG, feature/enhancement → FEATURE, task → TASK, story → STORY, chore → CHORE, spike → SPIKE),
+else ISSUE. Look it up once and reuse it. `github.json` in the change folder gives the milestone / epic.
 Scope is **this ticket only**. Anything else you discover goes in the PR's *Pending decisions* or the final report.
 
 ## 1. Start clean
@@ -24,7 +26,7 @@ Scope is **this ticket only**. Anything else you discover goes in the PR's *Pend
   plus the task line itself. These drive the tests and become the PR checklist.
 
 ## 3. Branch
-- `git fetch origin` then `git switch -c "$(SYNC branch --issue <n> --title "<ticket title>")" origin/<default-branch>`.
+- `git fetch origin` then `git switch -c "$(SYNC branch --issue <n> --title "<ticket title>")" origin/<default-branch>` (e.g. `bug-10-null-total`).
 - **Dependency check:** if the task needs code from an earlier ticket whose PR is not merged, ask: wait / merge it first,
   or stack (`--stack`): branch from that PR's branch, open this PR against it, write `Depends on #<pr>` in the body.
 
@@ -37,7 +39,7 @@ A question only a person can answer (product rule, naming, scope) → don't gues
 Run the `dod` skill. Fix everything it finds before continuing.
 
 ## 6. Commit, push, draft PR linked to the issue
-- Every commit message starts with the tag: `<tag> <type>(<scope>): <summary>`.
+- Every commit message starts with the tag: `<tag> <type>(<scope>): <summary>` — e.g. `[BUG-10] fix(refunds): handle null total`.
 - `git push -u origin <branch>`
 - Write the body following the project's `.github/pull_request_template.md` (create it from the structure below if missing):
   ```

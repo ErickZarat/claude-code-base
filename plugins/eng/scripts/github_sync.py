@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+Tags: `[<KIND>-<n>]` where KIND comes from the issue's native type (org repos), else a type label
+(bug → BUG, feature/enhancement → FEATURE, task → TASK, story → STORY, chore → CHORE, spike → SPIKE), else ISSUE.
+
 Syncs an OpenSpec change to GitHub: one task issue per open task in tasks.md, grouped by
   - milestone (default): one milestone per change + a `change:<name>` label — works on free personal accounts;
   - epic: a parent issue labelled `epic` with the tasks as sub-issues;
@@ -12,8 +15,10 @@ Usage:
   github_sync.py sync   --change openspec/changes/<name> [--tracking milestone|epic|both] [--group-by task|section]
                         [--dry-run] [--repo owner/name]
   github_sync.py next   --change openspec/changes/<name>       # prints the next issue number to work on
+  github_sync.py tag    --issue 43                              # [TASK-43] / [BUG-43] / [ISSUE-43] …
   github_sync.py branch --issue 43 --title "POST /refunds endpoint"
   github_sync.py title  --issue 43 --type feat --title "POST /refunds endpoint"
+  (tag/branch/title look the kind up from the issue's type or labels; pass --kind BUG to skip the lookup)
 """
 
 from __future__ import annotations  # keeps type hints working on macOS's bundled Python 3.9
@@ -27,17 +32,29 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
-TAG_PREFIX = "ISSUE"
+DEFAULT_KIND = "ISSUE"  # tag kind when the issue has no type and no type label
+# Label → tag kind, in priority order (an issue labelled both bug and task is a BUG).
+KIND_BY_LABEL = [
+    ({"bug", "defect"}, "BUG"),
+    ({"feature", "enhancement", "feat"}, "FEATURE"),
+    ({"story", "user story", "user-story"}, "STORY"),
+    ({"spike", "research"}, "SPIKE"),
+    ({"chore", "maintenance"}, "CHORE"),
+    ({"task"}, "TASK"),
+]
+KIND_ALIASES = {"USERSTORY": "STORY", "ENHANCEMENT": "FEATURE", "DEFECT": "BUG"}
+KNOWN_KINDS = [DEFAULT_KIND, "TASK", "BUG", "FEATURE", "STORY", "CHORE", "SPIKE"]  # get autolinks
 MAPPING_FILE_NAME = "github.json"
 MAX_BRANCH_LENGTH = 60
 MAX_PROPOSAL_EXCERPT_LINES = 40
 
 TASK_LINE = re.compile(r"^(?P<indent>\s*)- \[(?P<mark>[ xX])\] (?P<key>\d+(?:\.\d+)+)\s+(?P<rest>.*)$")
 SECTION_LINE = re.compile(r"^## (?P<key>\d+)\.\s+(?P<rest>.*)$")
-EXISTING_TAG = re.compile(rf"\[{TAG_PREFIX}-(\d+)\]\s*")
+EXISTING_TAG = re.compile(r"\[[A-Z][A-Z0-9]*-(\d+)\]\s*")  # [ISSUE-12], [TASK-44], [BUG-10] …
 
 TRACKING_MODES = ("milestone", "epic", "both")
 CHANGE_LABEL_COLOR = "1d76db"
+TASK_KIND = "TASK"  # tickets created by sync carry the `task` label
 
 LABELS = {
     "epic": ("5319e7", "OpenSpec change tracked as an epic"),
@@ -83,18 +100,35 @@ def item_label(item: WorkItem) -> str:
     return f"{item.key}{separator} {item.title}"
 
 
-def issue_tag(issue_number: int) -> str:
-    return f"[{TAG_PREFIX}-{issue_number}]"
+def tag_kind(issue_type: str | None, labels: list[str]) -> str:
+    """Tag kind for an issue: its native issue type (org repos), else a type label, else ISSUE."""
+    if issue_type:
+        kind = re.sub(r"[^A-Z0-9]", "", issue_type.upper())
+        return KIND_ALIASES.get(kind, kind) or DEFAULT_KIND
+    lowered = {label.lower() for label in labels}
+    for label_names, kind in KIND_BY_LABEL:
+        if lowered & label_names:
+            return kind
+    return DEFAULT_KIND
 
 
-def branch_name(issue_number: int, title: str) -> str:
+def issue_tag(issue_number: int, kind: str = DEFAULT_KIND) -> str:
+    return f"[{kind}-{issue_number}]"
+
+
+def branch_name(issue_number: int, title: str, kind: str = DEFAULT_KIND) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-    prefix = f"issue-{issue_number}-"
+    prefix = f"{kind.lower()}-{issue_number}-"
     return (prefix + slug)[:MAX_BRANCH_LENGTH].rstrip("-")
 
 
-def pr_title(issue_number: int, change_type: str, title: str) -> str:
-    return f"{issue_tag(issue_number)} {change_type}: {title}"
+def pr_title(issue_number: int, change_type: str, title: str, kind: str = DEFAULT_KIND) -> str:
+    return f"{issue_tag(issue_number, kind)} {change_type}: {title}"
+
+
+def has_tag_for(issue_number: int, text: str) -> bool:
+    """True when text contains a tag of any kind for this issue number."""
+    return re.search(rf"\[[A-Z][A-Z0-9]*-{issue_number}\]", text) is not None
 
 
 # --- Port and adapter --------------------------------------------------------------------------
@@ -108,6 +142,7 @@ class GitHubClient(Protocol):
     def ensure_autolink(self, key_prefix: str, url_template: str) -> bool: ...
     def open_pull_request_titles(self) -> list[str]: ...
     def is_issue_open(self, number: int) -> bool: ...
+    def issue_type_and_labels(self, number: int) -> tuple[str | None, list[str]]: ...
 
 
 def run_command(command: list[str]) -> str:
@@ -177,6 +212,15 @@ class GhCliClient:
         issue = json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}"]))
         return issue["state"] == "open"
 
+    def issue_type_and_labels(self, number: int) -> tuple[str | None, list[str]]:
+        issue = json.loads(self.run(["gh", "api", f"repos/{self.repo}/issues/{number}"]))
+        issue_type = (issue.get("type") or {}).get("name")  # native issue types exist only on org repos
+        return issue_type, [label["name"] for label in issue.get("labels", [])]
+
+
+def tag_for_issue(client: GitHubClient, issue_number: int) -> str:
+    return issue_tag(issue_number, tag_kind(*client.issue_type_and_labels(issue_number)))
+
 
 # --- tasks.md parsing and tagging ---------------------------------------------------------------
 
@@ -211,12 +255,13 @@ def parse_work_items(lines: list[str], group_by: str) -> list[WorkItem]:
     return items
 
 
-def tag_line(line: str, item_key: str, issue_number: int) -> str:
-    """Insert [ISSUE-n] right after the task/section number, unless the line is already tagged."""
+def tag_line(line: str, item_key: str, issue_number: int, kind: str = DEFAULT_KIND) -> str:
+    """Insert [<KIND>-n] right after the task/section number, unless the line is already tagged."""
     if EXISTING_TAG.search(line):
         return line
-    return line.replace(f"{item_key} ", f"{item_key} {issue_tag(issue_number)} ", 1) if TASK_LINE.match(line) \
-        else line.replace(f"{item_key}. ", f"{item_key}. {issue_tag(issue_number)} ", 1)
+    tag = issue_tag(issue_number, kind)
+    return line.replace(f"{item_key} ", f"{item_key} {tag} ", 1) if TASK_LINE.match(line) \
+        else line.replace(f"{item_key}. ", f"{item_key}. {tag} ", 1)
 
 
 # --- Sync ---------------------------------------------------------------------------------------
@@ -260,7 +305,7 @@ def task_issue_body(item: WorkItem, parent_lines: list[str], change_path: str) -
         f"delta specs there for requirements and scenarios.\n\n"
         + (f"## Subtasks\n{subtasks}\n\n" if subtasks else "")
         + "## Working on this ticket\n"
-        f"- Branch: `issue-<n>-<slug>` · commits and PR title start with `[{TAG_PREFIX}-<n>]` · PR body: `Closes #<n>`\n"
+        f"- Tag `[{TASK_KIND}-<n>]` (from the `task` label): branch `{TASK_KIND.lower()}-<n>-<slug>` · every commit and the PR title start with the tag · PR body: `Closes #<n>`\n"
         "- PR body: acceptance criteria, Definition of Done and pending decisions as checklists — it can only be marked\n"
         "  ready when all are checked (CI enforces). Run `/eng:task <n>` to do it all."
     )
@@ -274,7 +319,7 @@ def epic_body(change_dir: Path, items: list[WorkItem], change_path: str) -> str:
         checklist.append(f"- [{mark}] {reference}{item_label(item)}")
     return (
         f"OpenSpec change: `{change_path}`\n\n{proposal_excerpt(change_dir)}\n\n## Tasks\n" + "\n".join(checklist)
-        + f"\n\nEach task is worked as its own PR titled `[{TAG_PREFIX}-<n>] …` (`/eng:task <n>`)."
+        + f"\n\nEach task is worked as its own PR titled `[{TASK_KIND}-<n>] …` (`/eng:task <n>`)."
     )
 
 
@@ -325,8 +370,10 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
     for label_name, (color, description) in LABELS.items():
         client.ensure_label(label_name, color, description)
     client.ensure_label(change_label, CHANGE_LABEL_COLOR, f"OpenSpec change {change_dir.name}")
-    if not client.ensure_autolink(f"{TAG_PREFIX}-", f"https://github.com/{repo}/issues/<num>"):
-        report.warnings.append(f"Could not add the {TAG_PREFIX}- autolink (needs repo admin); tags won't be clickable.")
+    for kind in KNOWN_KINDS:
+        if not client.ensure_autolink(f"{kind}-", f"https://github.com/{repo}/issues/<num>"):
+            report.warnings.append(f"Could not add the {kind}- autolink (needs repo admin); those tags won't be clickable.")
+            break
 
     if use_milestone:
         report.milestone_number = client.ensure_milestone(change_title, milestone_description(change_dir, change_path))
@@ -349,7 +396,7 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
 
     for item in items:
         if item.issue_number:
-            lines[item.line_index] = tag_line(lines[item.line_index], item.key, item.issue_number)
+            lines[item.line_index] = tag_line(lines[item.line_index], item.key, item.issue_number, TASK_KIND)
     tasks_file.write_text("\n".join(lines) + "\n")
     mapping = {"repo": repo, "tracking": tracking, "milestone": report.milestone_number if use_milestone else None,
                "epic": report.epic_number if use_epic else None, "group_by": group_by,
@@ -365,7 +412,7 @@ def next_task(change_dir: Path, client: GitHubClient) -> int | None:
     open_pr_titles = " ".join(client.open_pull_request_titles())
     for item in items:
         number = item.issue_number or mapping["items"].get(item.key)
-        if item.done or number is None or issue_tag(number) in open_pr_titles:
+        if item.done or number is None or has_tag_for(number, open_pr_titles):
             continue
         if client.is_issue_open(number):
             return number
@@ -390,20 +437,27 @@ def main() -> int:
     next_parser = commands.add_parser("next")
     next_parser.add_argument("--change", required=True)
     next_parser.add_argument("--repo")
+    tag_parser = commands.add_parser("tag", help="print the tag for an issue, e.g. [BUG-10]")
     branch_parser = commands.add_parser("branch")
-    branch_parser.add_argument("--issue", type=int, required=True)
-    branch_parser.add_argument("--title", required=True)
     title_parser = commands.add_parser("title")
-    title_parser.add_argument("--issue", type=int, required=True)
+    for issue_parser in (tag_parser, branch_parser, title_parser):
+        issue_parser.add_argument("--issue", type=int, required=True)
+        issue_parser.add_argument("--kind", help="BUG, FEATURE, TASK, … (default: looked up from the issue's type/labels)")
+        issue_parser.add_argument("--repo")
+    branch_parser.add_argument("--title", required=True)
     title_parser.add_argument("--type", default="feat")
     title_parser.add_argument("--title", required=True)
     arguments = parser.parse_args()
 
-    if arguments.command == "branch":
-        print(branch_name(arguments.issue, arguments.title))
-        return 0
-    if arguments.command == "title":
-        print(pr_title(arguments.issue, arguments.type, arguments.title))
+    if arguments.command in ("tag", "branch", "title"):
+        kind = arguments.kind.upper() if arguments.kind else \
+            tag_kind(*GhCliClient(arguments.repo or detect_repo()).issue_type_and_labels(arguments.issue))
+        if arguments.command == "tag":
+            print(issue_tag(arguments.issue, kind))
+        elif arguments.command == "branch":
+            print(branch_name(arguments.issue, arguments.title, kind))
+        else:
+            print(pr_title(arguments.issue, arguments.type, arguments.title, kind))
         return 0
 
     change_dir = Path(arguments.change)

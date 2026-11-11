@@ -68,7 +68,8 @@ class FakeGitHubClient:
         self.labels.add(name)
 
     def ensure_autolink(self, key_prefix, url_template):
-        self.autolinks.append(key_prefix)
+        if key_prefix not in self.autolinks:
+            self.autolinks.append(key_prefix)
         return True
 
     def open_pull_request_titles(self):
@@ -76,6 +77,10 @@ class FakeGitHubClient:
 
     def is_issue_open(self, number):
         return number not in self.closed_issue_numbers
+
+    def issue_type_and_labels(self, number):
+        issue = self.issues[number]
+        return issue.get("type"), issue["labels"]
 
 
 @pytest.fixture
@@ -109,9 +114,12 @@ def epic_issues(client):
 
 def test_issue_tag_branch_and_pr_title_formats():
     assert github_sync.issue_tag(43) == "[ISSUE-43]"
+    assert github_sync.issue_tag(10, "BUG") == "[BUG-10]"
     assert github_sync.branch_name(43, "POST /refunds endpoint!") == "issue-43-post-refunds-endpoint"
+    assert github_sync.branch_name(10, "Null total crashes", "BUG") == "bug-10-null-total-crashes"
     assert len(github_sync.branch_name(43, "word " * 40)) <= 60
     assert github_sync.pr_title(43, "feat", "POST /refunds endpoint") == "[ISSUE-43] feat: POST /refunds endpoint"
+    assert github_sync.pr_title(7, "feat", "Refunds", "FEATURE") == "[FEATURE-7] feat: Refunds"
 
 
 # --- sync ----------------------------------------------------------------------------------
@@ -168,7 +176,7 @@ def test_writes_tags_into_tasks_md_and_mapping_file(change_dir):
 
     tasks_text = (change_dir / "tasks.md").read_text()
     number_for_2_1 = next(n for n, i in task_issues(client).items() if i["title"].startswith("2.1"))
-    assert f"- [ ] 2.1 [ISSUE-{number_for_2_1}] POST /refunds endpoint" in tasks_text
+    assert f"- [ ] 2.1 [TASK-{number_for_2_1}] POST /refunds endpoint" in tasks_text
     assert "- [x] 1.2 Add Refund entity" in tasks_text
     mapping = json.loads((change_dir / "github.json").read_text())
     assert mapping["repo"] == "acme/shop"
@@ -212,7 +220,7 @@ def test_group_by_section_creates_one_ticket_per_section(change_dir):
     assert titles == ["1. Data model", "2. API"]
     api_issue = next(i for i in task_issues(client).values() if i["title"] == "2. API")
     assert "- [ ] 2.1 POST /refunds endpoint" in api_issue["body"]
-    assert "## 2. [ISSUE-" in (change_dir / "tasks.md").read_text()
+    assert "## 2. [TASK-" in (change_dir / "tasks.md").read_text()
 
 
 def test_falls_back_to_checklist_when_sub_issues_unsupported(change_dir):
@@ -231,7 +239,7 @@ def test_ensures_labels_and_issue_autolink(change_dir):
     sync(change_dir, client)
 
     assert {"epic", "task"} <= client.labels
-    assert client.autolinks == ["ISSUE-"]
+    assert {"ISSUE-", "TASK-", "BUG-", "FEATURE-", "STORY-"} <= set(client.autolinks)
 
 
 def test_dry_run_changes_nothing(change_dir):
@@ -265,7 +273,7 @@ def test_next_task_skips_done_closed_and_in_progress_tickets(change_dir):
     assert github_sync.next_task(change_dir, client) == issue_1_1
 
     client.closed_issue_numbers.add(issue_1_1)
-    client.open_pr_titles.append(f"[ISSUE-{issue_2_1}] feat: POST /refunds endpoint")
+    client.open_pr_titles.append(f"[TASK-{issue_2_1}] feat: POST /refunds endpoint")
     assert github_sync.next_task(change_dir, client) == issue_2_2
 
     client.closed_issue_numbers.add(issue_2_2)
@@ -385,3 +393,71 @@ def test_gh_cli_client_sets_milestone_on_new_issues():
     github_sync.GhCliClient("acme/shop", run=fake_run).create_issue("t", "b", ["task"], milestone=5)
 
     assert "milestone=5" in recorded_commands[0]
+
+
+# --- v2.7: tag prefix from the issue type ------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "issue_type, labels, expected",
+    [
+        ("Bug", [], "BUG"),
+        ("Feature", ["task"], "FEATURE"),        # native type wins over labels
+        ("User Story", [], "STORY"),
+        ("Spike", [], "SPIKE"),
+        (None, ["bug", "task"], "BUG"),          # bug label wins over task
+        (None, ["enhancement"], "FEATURE"),
+        (None, ["Feature"], "FEATURE"),
+        (None, ["task", "change:add-refunds"], "TASK"),
+        (None, ["story"], "STORY"),
+        (None, ["chore"], "CHORE"),
+        (None, ["good first issue", "help wanted"], "ISSUE"),
+        (None, [], "ISSUE"),
+    ],
+)
+def test_tag_kind_comes_from_issue_type_then_labels_then_default(issue_type, labels, expected):
+    assert github_sync.tag_kind(issue_type, labels) == expected
+
+
+def test_tag_for_issue_looks_the_kind_up_on_github(change_dir):
+    client = FakeGitHubClient()
+    bug = client.create_issue("Null total crashes", "", ["bug"]).number
+    plain = client.create_issue("Something", "", []).number
+
+    assert github_sync.tag_for_issue(client, bug) == "[BUG-%d]" % bug
+    assert github_sync.tag_for_issue(client, plain) == "[ISSUE-%d]" % plain
+
+
+def test_legacy_issue_tags_in_tasks_md_are_still_recognised(change_dir):
+    tasks = change_dir / "tasks.md"
+    tasks.write_text(tasks.read_text().replace("- [ ] 1.1 Add refunds", "- [ ] 1.1 [ISSUE-500] Add refunds"))
+    client = FakeGitHubClient()
+
+    sync(change_dir, client)
+
+    assert not any(issue["title"].startswith("1.1") for issue in task_issues(client).values())
+    assert "[ISSUE-500] Add refunds" in tasks.read_text()
+    assert json.loads((change_dir / "github.json").read_text())["items"]["1.1"] == 500
+
+
+def test_next_task_sees_open_prs_with_any_kind_prefix(change_dir):
+    client = FakeGitHubClient()
+    sync(change_dir, client)
+    first = json.loads((change_dir / "github.json").read_text())["items"]["1.1"]
+    client.open_pr_titles.append(f"[BUG-{first}] fix: migration")
+
+    assert github_sync.next_task(change_dir, client) != first
+
+
+def test_gh_cli_client_reads_native_type_and_labels():
+    def fake_run(command):
+        return json.dumps({"state": "open", "type": {"name": "Bug"}, "labels": [{"name": "task"}]})
+
+    client = github_sync.GhCliClient("acme/shop", run=fake_run)
+
+    assert client.issue_type_and_labels(10) == ("Bug", ["task"])
+
+
+def test_gh_cli_client_handles_repos_without_issue_types():
+    client = github_sync.GhCliClient("acme/shop", run=lambda command: json.dumps({"labels": [{"name": "bug"}]}))
+
+    assert client.issue_type_and_labels(10) == (None, ["bug"])

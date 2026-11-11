@@ -91,7 +91,7 @@ Work through the chosen findings in order BLOCKER → MAJOR → QUESTION → MIN
   If the answer reveals a problem, convert it into a new finding with a severity.
 - **Minor / suggestions:** fix, or DECLINE with a concrete reason (scope, trade-off, conflicts with spec). No silent ignores.
 - **Disagreement on a BLOCKER/MAJOR:** do not decline it yourself — write your reasoning in the ledger and ask the user to decide.
-- Commit per finding or per logical group, ticket tag first: `[ISSUE-44] fix(review): R1-BLK-1 add refund limit test and validation`.
+- Commit per finding or per logical group, ticket tag first: `[TASK-44] fix(review): R1-BLK-1 add refund limit test and validation`.
 - Run the gates (build, tests, lint) after remediation. Mark items FIXED with commit refs.
 
 ### Choose the next round's scope

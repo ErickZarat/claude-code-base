@@ -115,3 +115,14 @@ def test_pr_template_has_the_required_sections():
     template = PR_TEMPLATE.read_text()
     for section in ("## Acceptance criteria", "## Definition of Done", "## Pending decisions", "Closes #"):
         assert section in template
+
+
+def test_title_tag_number_must_match_the_closed_issue():
+    result = run_check(COMPLETE_BODY, title="[BUG-45] fix: refunds endpoint")  # body closes #44
+    assert result.returncode == 1
+    assert "#45" in result.stdout
+
+
+@pytest.mark.parametrize("title", ["[BUG-44] fix: refund total", "[FEATURE-44] feat: refunds", "[TASK-44] feat: x"])
+def test_any_kind_prefix_with_matching_number_passes(title):
+    assert run_check(COMPLETE_BODY, title=title).returncode == 0

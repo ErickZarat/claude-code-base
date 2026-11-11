@@ -1,5 +1,6 @@
 # Installed by eng@claude-code-base. Every PR title must start with the ticket tag so squash-merge
-# commits on the default branch trace back to their GitHub issue: "[ISSUE-43] feat: ...".
+# commits on the default branch trace back to their GitHub issue: "[BUG-10] fix: ...", "[TASK-43] feat: ...".
+# The kind comes from the issue's type or type label (BUG, FEATURE, TASK, STORY, CHORE, SPIKE); ISSUE by default.
 # Use "[NO-ISSUE] ..." for changes without a ticket. Dependency bots are exempt.
 name: PR title
 
@@ -14,13 +15,13 @@ jobs:
     if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Title starts with [ISSUE-<number>] or [NO-ISSUE]
+      - name: Title starts with [<KIND>-<number>] or [NO-ISSUE]
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}  # via env, never interpolated into the script
         run: |
-          if printf '%s' "$PR_TITLE" | grep -Eq '^\[(ISSUE-[0-9]+|NO-ISSUE)\] [^ ]'; then
+          if printf '%s' "$PR_TITLE" | grep -Eq '^\[([A-Z][A-Z0-9]*-[0-9]+|NO-ISSUE)\] [^ ]'; then
             echo "PR title OK"
           else
-            echo "::error::PR title must start with '[ISSUE-<number>] ' (or '[NO-ISSUE] '). Got: $PR_TITLE"
+            echo "::error::PR title must start with '[<KIND>-<number>] ' e.g. '[BUG-10] ', '[TASK-44] ', '[ISSUE-7] ' (or '[NO-ISSUE] '). Got: $PR_TITLE"
             exit 1
           fi

@@ -4,6 +4,7 @@ PR checklist gate (installed by eng@claude-code-base).
 
 A PR that is ready for review must:
   - link its issue with a closing keyword ("Closes #44") — unless the title starts with [NO-ISSUE];
+  - use the same issue number in the title tag ([BUG-44], [TASK-44] …) as in the closing keyword;
   - have "## Acceptance criteria" (not required for [NO-ISSUE]) and "## Definition of Done" checklists;
   - have every item in Acceptance criteria, Definition of Done and Pending decisions checked.
 Draft PRs only get a report, so work in progress is never blocked.
@@ -17,7 +18,8 @@ import os
 import re
 import sys
 
-CLOSING_KEYWORD = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\d+", re.IGNORECASE)
+CLOSING_KEYWORD = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.IGNORECASE)
+TITLE_TAG = re.compile(r"^\[[A-Z][A-Z0-9]*-(\d+)\]")  # [BUG-10], [TASK-44], [ISSUE-7] …
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 UNCHECKED_ITEM = re.compile(r"^\s*[-*]\s+\[ \]\s+(.+)$", re.MULTILINE)
@@ -48,8 +50,13 @@ def find_problems(title: str, body: str) -> tuple[list[str], list[str]]:
     is_ticketless = title.startswith("[NO-ISSUE]")
     problems: list[str] = []
 
-    if not is_ticketless and not CLOSING_KEYWORD.search(body):
+    closed_issues = {int(number) for number in CLOSING_KEYWORD.findall(body)}
+    if not is_ticketless and not closed_issues:
         problems.append("Link the issue in the PR body with a closing keyword, e.g. 'Closes #44'.")
+    title_tag = TITLE_TAG.match(title)
+    if title_tag and closed_issues and int(title_tag.group(1)) not in closed_issues:
+        problems.append(f"The title tag refers to #{title_tag.group(1)} but the body closes "
+                        f"{', '.join(f'#{n}' for n in sorted(closed_issues))} — they must match.")
     required_sections = [DEFINITION_OF_DONE] if is_ticketless else [ACCEPTANCE_CRITERIA, DEFINITION_OF_DONE]
     for section in required_sections:
         if section not in sections or not ANY_ITEM.search(sections[section]):

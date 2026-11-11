@@ -40,8 +40,8 @@ Installs rules, CLAUDE.md, settings, pre-commit and the PR-title check, then fil
 **3. Every feature:**
 ```text
 /opsx:propose <what you want>   # plan → you approve proposal, specs and tasks
-/eng:epic                       # GitHub milestone + one ticket per task, tagged [ISSUE-n]
-/eng:task next                  # ticket → branch → TDD → DoD → PR "[ISSUE-n] …" with checklists → review → ready
+/eng:epic                       # GitHub milestone + one ticket per task, tagged [TASK-n]
+/eng:task next                  # ticket → branch → TDD → DoD → PR "[TASK-n] …" with checklists → review → ready
   … you merge the PR …
 /clear                          # fresh context for the next ticket
 /eng:task next                  # repeat until the epic is done
@@ -69,7 +69,7 @@ That's it. Everything below is reference.
 
 ```
  Plan ─────────► Tickets ─────► Per ticket (/eng:task) ──────────────────────────────────────► Merge
- /opsx:propose    /eng:epic      branch → TDD → /eng:dod → draft PR [ISSUE-n] → /eng:review → ready   you
+ /opsx:propose    /eng:epic      branch → TDD → /eng:dod → draft PR [KIND-n] → /eng:review → ready    you
  (you approve)                   (one ticket = one branch = one PR; every PR gets every reviewer)
 ```
 
@@ -83,7 +83,7 @@ That's it. Everything below is reference.
 | 6. Next | `/clear`, `/eng:task next` | Picks the next ticket that is open and has no PR |
 
 No OpenSpec in a project? Describe the change, Claude writes a `plan-change` plan, then `/eng:dod` and
-`/eng:review` on the PR. Title it `[NO-ISSUE] …` or create the issue by hand and use `[ISSUE-n]`.
+`/eng:review` on the PR. Title it `[NO-ISSUE] …`, or create the issue by hand and use its tag (`[BUG-n]`, `[FEATURE-n]`, or `[ISSUE-n]` if untyped).
 
 ---
 
@@ -105,15 +105,26 @@ no ticket. With `--group-by section`, each `## N.` section of `tasks.md` becomes
 | `epic` | Parent issue labelled `epic`, tickets as sub-issues | GitHub's *Epic* issue type is organization-only; this is a normal issue in that role |
 | `both` | Milestone and parent issue | |
 
-**The tag `[ISSUE-<n>]` goes at the start of:**
+**The ticket tag: `[<KIND>-<n>]`.** The kind comes from the issue itself:
+
+| Source (first match wins) | Tag |
+|---|---|
+| Native issue type (organization repos only — GitHub has no issue types on personal accounts) | `Bug` → `[BUG-10]`, `Feature` → `[FEATURE-10]`, `Task` → `[TASK-10]`, any custom type e.g. `Spike` → `[SPIKE-10]` |
+| Type label (personal and org repos) | `bug` → BUG · `feature`/`enhancement` → FEATURE · `story` → STORY · `spike` → SPIKE · `chore` → CHORE · `task` → TASK |
+| Neither | `[ISSUE-10]` (default) |
+
+Tickets created by `/eng:epic` carry the `task` label, so they are `[TASK-n]`. Label a hand-made issue `bug` and its
+PR becomes `[BUG-n] …`. Old `[ISSUE-n]` tags stay valid everywhere.
+
+**The tag goes at the start of:**
 | Where | Example |
 |---|---|
-| `tasks.md` (written by `/eng:epic`) | `- [ ] 2.1 [ISSUE-44] POST /refunds endpoint` |
-| Branch name | `issue-44-post-refunds-endpoint` |
-| Every commit | `[ISSUE-44] feat(refunds): add POST /refunds` |
-| PR title | `[ISSUE-44] feat: POST /refunds endpoint` |
+| `tasks.md` (written by `/eng:epic`) | `- [ ] 2.1 [TASK-44] POST /refunds endpoint` |
+| Branch name | `task-44-post-refunds-endpoint` · `bug-10-null-total` |
+| Every commit | `[TASK-44] feat(refunds): add POST /refunds` · `[BUG-10] fix(refunds): handle null total` |
+| PR title | `[TASK-44] feat: POST /refunds endpoint` |
 | PR body | `Closes #44` (links the PR under the issue's *Development* and closes it on merge) |
-| Squash-merge commit on `main` | = PR title, so `git log --grep "ISSUE-44"` finds everything |
+| Squash-merge commit on `main` | = PR title, so `git log --grep "\-44\]"` finds everything for #44 |
 
 **Every PR carries its own checklist**
 ```markdown
@@ -139,12 +150,13 @@ Part of milestone: Add refunds (add-refunds)
 **What enforces it (CI, installed by `/eng:setup`)**
 | Check | Fails when |
 |---|---|
-| `PR title` (`eng-pr-title.yml`) | Title doesn't start with `[ISSUE-<n>] ` or `[NO-ISSUE] ` |
+| `PR title` (`eng-pr-title.yml`) | Title doesn't start with `[<KIND>-<n>] ` (e.g. `[BUG-10] `) or `[NO-ISSUE] ` |
 | `PR checklist` (`eng-pr-checklist.yml`) | A **ready** PR has no `Closes #n`, lacks the Acceptance criteria / DoD sections, or has any unchecked item in them or in Pending decisions. Draft PRs only get the list of pending items |
 
 Make both required checks in branch protection. Dependabot/Renovate are exempt. `[NO-ISSUE]` PRs need no issue link
 or acceptance criteria, only the DoD. `/eng:epic` also offers *squash merge, commit title = PR title* (merge commits
-keep the tag) and adds an `ISSUE-` autolink (both need repo admin). `openspec/changes/<change>/github.json` stores the
+keep the tag) and adds autolinks for `ISSUE-`, `TASK-`, `BUG-`, `FEATURE-`, `STORY-`, `CHORE-`, `SPIKE-` so tags are
+clickable (both need repo admin). The PR checklist also fails if the title tag's number differs from `Closes #n`. `openspec/changes/<change>/github.json` stores the
 mapping; re-running `/eng:epic` only creates tickets for new tasks.
 
 ---
@@ -183,8 +195,8 @@ OpenSpec change → GitHub epic + tickets.
 1. Checks `gh` auth, validates the change (`openspec validate`), confirms `tasks.md` is approved.
 2. Suggests `--group-by section` when tasks are tiny or numerous (fewer tickets → fewer PRs).
 3. Previews, then creates the milestone (and/or parent issue with sub-issues), tickets, labels (`task`, `change:<name>`)
-   and the `ISSUE-` autolink.
-4. Writes `[ISSUE-n]` into `tasks.md` and `github.json`; commits them (or leaves them for the first task PR if `main` is protected).
+   and the tag autolinks.
+4. Writes `[TASK-n]` into `tasks.md` and `github.json`; commits them (or leaves them for the first task PR if `main` is protected).
 5. Offers the squash-merge repo setting. Idempotent: re-run after changing `tasks.md`.
 
 ### `/eng:task`
@@ -197,10 +209,10 @@ One ticket → one PR, with DoD and the review cycle every time.
 ```
 1. Clean working tree; one task per context (asks you to `/clear` otherwise).
 2. Reads the ticket and only the OpenSpec parts it needs.
-3. Branch `issue-<n>-<slug>` from the latest default branch (asks to wait or stack if it depends on an unmerged ticket).
+3. Looks up the tag (`[BUG-10]`, `[TASK-44]` …). Branch `<kind>-<n>-<slug>` from the latest default branch (asks to wait or stack if it depends on an unmerged ticket).
 4. TDD per behaviour, reuse-first, interfaces; ticks the task in `tasks.md`. Out-of-scope discoveries become proposed new tasks, not extra code.
 5. `/eng:dod` — must pass.
-6. `[ISSUE-n]` commits, push, **draft** PR titled `[ISSUE-n] <type>: <task>` with `Closes #n`, the milestone and
+6. Tagged commits, push, **draft** PR titled `[<KIND>-n] <type>: <task>` with `Closes #n`, the milestone and
    labels, and checklists for acceptance criteria, DoD and pending decisions (see [Ticket tracking](#ticket-tracking)).
 7. Review cycle on the PR — every dedicated reviewer, stopping after each round for your decision.
 8. Everything checked with evidence → PR marked ready + one verdict comment. Anything open (pending decision,
@@ -350,7 +362,7 @@ Exit when all criteria hold — or stop and ask you
 ### Roles
 - **Reviewers** — fresh subagents each round; raise findings, verify previous fixes (VERIFIED / REOPENED), never edit code.
 - **Author** — your session; fixes in order 🔴 → 🟠 → ❓ → 🟡 → 💡, bugs via a failing test first, commits as
-  `[ISSUE-44] fix(review): R1-MAJ-3 …`. It cannot verify its own fixes.
+  `[TASK-44] fix(review): R1-MAJ-3 …`. It cannot verify its own fixes.
 
 ### Exit criteria
 - Build, full tests, lint green on the final commit.

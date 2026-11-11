@@ -25,11 +25,14 @@ def test_title_is_passed_through_env_not_interpolated_into_the_script():
     assert "PR_TITLE: ${{ github.event.pull_request.title }}" in WORKFLOW.read_text()
 
 
-@pytest.mark.parametrize("title", ["[ISSUE-43] feat: refunds endpoint", "[ISSUE-7] fix(api): null total", "[NO-ISSUE] chore: bump deps"])
+@pytest.mark.parametrize("title", ["[ISSUE-43] feat: refunds endpoint", "[ISSUE-7] fix(api): null total", "[NO-ISSUE] chore: bump deps",
+                                   "[BUG-10] fix: null total", "[FEATURE-10] feat: refunds", "[TASK-44] feat: endpoint",
+                                   "[STORY-3] feat: checkout", "[SPIKE-2] docs: evaluate ClickHouse"])
 def test_accepts_tagged_titles(title):
     assert run_check(title) == 0
 
 
-@pytest.mark.parametrize("title", ["feat: refunds", "ISSUE-43 feat: x", "[ISSUE-] feat", "[issue-43] feat: x", "[ISSUE-43]feat: x"])
+@pytest.mark.parametrize("title", ["feat: refunds", "ISSUE-43 feat: x", "[ISSUE-] feat", "[issue-43] feat: x", "[ISSUE-43]feat: x",
+                                   "[bug-10] fix: x", "[BUG10] fix: x", "[-10] fix: x", "[BUG-10-2] fix: x"])
 def test_rejects_untagged_titles(title):
     assert run_check(title) != 0

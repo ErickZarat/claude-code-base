@@ -1,4 +1,5 @@
-<!-- Title: "[ISSUE-<n>] <type>: <summary>"  (or "[NO-ISSUE] ..." when there is no ticket) -->
+<!-- Title: "[<KIND>-<n>] <type>: <summary>" — KIND from the issue type/label: BUG, FEATURE, TASK, STORY, CHORE,
+     SPIKE, or ISSUE when untyped (e.g. "[BUG-10] fix: null total"). "[NO-ISSUE] ..." when there is no ticket. -->
 Closes #
 <!-- Part of milestone / epic: ... -->
 

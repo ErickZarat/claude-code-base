@@ -3,6 +3,19 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.7.0] — 2026-11-11
+### Changed — ticket tags follow the issue type
+- Tag format `[<KIND>-<n>]`. KIND = the issue's native type (organization repos: Bug → BUG, Feature → FEATURE,
+  Task → TASK, custom types e.g. Spike → SPIKE), else a type label (bug → BUG, feature/enhancement → FEATURE,
+  story → STORY, spike → SPIKE, chore → CHORE, task → TASK), else the default `ISSUE`.
+- Branches follow the kind: `bug-10-null-total`, `task-44-post-refunds-endpoint`.
+- `/eng:epic` tickets carry the `task` label → new `tasks.md` tags are `[TASK-n]`. Existing `[ISSUE-n]` tags are still
+  recognised by sync, `next`, the PR title check and the PR checklist — no migration needed.
+- `github_sync.py tag --issue <n>` prints the tag; `branch`/`title` look the kind up automatically (`--kind` to override).
+- Autolinks for ISSUE-, TASK-, BUG-, FEATURE-, STORY-, CHORE-, SPIKE-.
+- PR title check accepts any `[<KIND>-<n>]`; PR checklist fails when the title tag's number differs from `Closes #n`.
+  Run `/eng:setup` in each project to update the CI checks, rule and PR template.
+
 ## [2.6.0] — 2026-11-11
 ### Fixed — secret guard false positives (reported from a project review: "key", "credentials", "secrets")
 - Shell commands are parsed into program + arguments. Only arguments of programs that read file contents (`cat`,
