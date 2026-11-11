@@ -429,6 +429,11 @@ Five layers, from fastest to last line of defence:
 4. **security-guidance plugin** — model review of changes in-session.
 5. **gitleaks** — pre-commit hook (`pre-commit install`) and in CI.
 
+Shell commands: only arguments of programs that read file contents (`cat`, `less`, `cp`, `base64`, `source`, the
+file arguments of `grep`/`rg`, `< file` redirects…) are treated as file reads. Words like `key`, `credentials` or
+`secrets` in a `grep` pattern, commit message or `kubectl get secrets` are not blocked; `cat ~/.aws/credentials` is.
+Source code inside a folder named `secrets/` (e.g. a `SecretService.kt` package) is readable; data files there are not.
+
 In **test files** (`src/test/`, `*Test.kt`, `*.spec.ts`, `test_*.py`, `*_test.go`, …) only real token formats are
 blocked; `password = "…"` and `user:pass@host` style fakes are allowed so you can test credential handling.
 Values containing `fake`, `mock`, `test` or `sample` count as placeholders everywhere. Anything else that's a
