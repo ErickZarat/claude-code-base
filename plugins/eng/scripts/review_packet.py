@@ -19,7 +19,6 @@ import re
 import subprocess
 from pathlib import Path
 
-QUICK_DEPTH_MAX_CHANGED_LINES = 50
 DEFAULT_MAX_DIFF_LINES = 3000
 
 PERFORMANCE_PATH_PATTERN = re.compile(r"(?i)(repositor|dao|query|queries|migration|\.sql$|cache|consumer|producer|client)")
@@ -78,10 +77,7 @@ def requirement_sources() -> list[str]:
     return sources
 
 
-def triage_depth(changed_line_count: int, security_review_needed: bool) -> str:
-    if changed_line_count <= QUICK_DEPTH_MAX_CHANGED_LINES and not security_review_needed:
-        return "quick"
-    return "standard"
+DEFAULT_DEPTH = "standard"  # every dedicated reviewer runs; quick is only used when the user explicitly asks
 
 
 def project_minimum_depth() -> str:
@@ -91,13 +87,12 @@ def project_minimum_depth() -> str:
     return match.group(1).lower() if match else "quick"
 
 
-def suggested_depth(changed_line_count: int, security_review_needed: bool) -> tuple[str, str]:
-    """The deeper of triage's suggestion and the project minimum, with the reason."""
-    from_triage = triage_depth(changed_line_count, security_review_needed)
+def suggested_depth() -> tuple[str, str]:
+    """The default depth, raised to the project minimum when that is deeper. Never lower than the default."""
     minimum = project_minimum_depth()
-    if DEPTH_ORDER.index(minimum) > DEPTH_ORDER.index(from_triage):
-        return minimum, f"project minimum (triage alone: {from_triage})"
-    return from_triage, f"triage: {changed_line_count} changed lines, security {'yes' if security_review_needed else 'no'}"
+    if DEPTH_ORDER.index(minimum) > DEPTH_ORDER.index(DEFAULT_DEPTH):
+        return minimum, "project minimum"
+    return DEFAULT_DEPTH, "default — all dedicated reviewers"
 
 
 def truncate(diff_text: str, max_lines: int) -> str:
@@ -124,9 +119,10 @@ def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
         f"{len(paths)} file(s), {changed_line_count} changed line(s)",
         "",
         "## Triage",
-        "Suggested depth: {} — {}".format(*suggested_depth(changed_line_count, security_needed)),
-        f"- performance: {'yes' if performance_needed else 'no'}",
-        f"- security: {'yes' if security_needed else 'no'}",
+        "Suggested depth: {} — {}".format(*suggested_depth()),
+        "Focus hints for reviewers (every reviewer still runs and checks everything):",
+        f"- performance focus: {'yes' if performance_needed else 'no'}",
+        f"- security focus: {'yes' if security_needed else 'no'}",
         "",
         "## Requirement sources",
         *(f"- {source}" for source in sources),

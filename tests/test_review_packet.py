@@ -58,22 +58,23 @@ def test_packet_contains_changed_files_and_diff(repo):
     assert "+data class Invoice(val id: String)" in packet
 
 
-def test_small_docs_change_suggests_quick_depth_and_no_specialists(repo):
+def test_small_change_still_gets_the_full_standard_review(repo):
     write(repo, "docs/guide.md", "Some new docs\n")
     commit_all(repo)
 
     packet = build_packet(repo)
 
-    assert "Suggested depth: quick" in packet
-    assert "performance: no" in packet
-    assert "security: no" in packet
+    assert "Suggested depth: standard" in packet
+    assert "quick" not in packet.split("## Triage")[1].split("## Requirement sources")[0]
+    assert "performance focus: no" in packet
+    assert "security focus: no" in packet
 
 
 def test_data_access_change_flags_performance_review(repo):
     write(repo, "src/InvoiceRepository.kt", "fun findAll() = db.query(\"SELECT * FROM invoice\")\n")
     commit_all(repo)
 
-    assert "performance: yes" in build_packet(repo)
+    assert "performance focus: yes" in build_packet(repo)
 
 
 def test_auth_or_dependency_change_flags_security_review(repo):
@@ -83,7 +84,7 @@ def test_auth_or_dependency_change_flags_security_review(repo):
 
     packet = build_packet(repo)
 
-    assert "security: yes" in packet
+    assert "security focus: yes" in packet
 
 
 def test_large_change_suggests_standard_depth(repo):
@@ -132,19 +133,19 @@ def test_huge_diffs_are_truncated_with_a_notice(repo):
 
 
 def test_project_minimum_depth_raises_the_suggestion(repo):
-    write(repo, "CLAUDE.md", "# Project\n\n## Review\nMinimum review depth: standard\n")
+    write(repo, "CLAUDE.md", "# Project\n\n## Review\nMinimum review depth: thorough\n")
     write(repo, "docs/guide.md", "tiny docs change\n")
     commit_all(repo)
 
     packet = build_packet(repo)
 
-    assert "Suggested depth: standard" in packet
+    assert "Suggested depth: thorough" in packet
     assert "project minimum" in packet
 
 
-def test_minimum_never_lowers_the_triage_suggestion(repo):
+def test_a_quick_minimum_never_lowers_the_default(repo):
     write(repo, "CLAUDE.md", "Minimum review depth: quick\n")
-    write(repo, "src/Big.kt", "".join(f"val value{i} = {i}\n" for i in range(120)))
+    write(repo, "src/Small.kt", "class Small\n")
     commit_all(repo)
 
     assert "Suggested depth: standard" in build_packet(repo)

@@ -32,8 +32,8 @@ Build, tests, lint (commands from CLAUDE.md); `gitleaks detect --no-banner --red
 if installed. A failing gate is a 🔴 BLOCKER. Pass a one-line result per gate to the reviewers.
 
 ## 4. Pick reviewers by depth
-Depth = `--depth` if given, else the packet's suggested depth — but never below the project's minimum: a
-`Minimum review depth: <quick|standard|thorough>` line in CLAUDE.md (absent = quick).
+Depth = `--depth` if given, else the packet's suggested depth (`standard`, or the project's
+`Minimum review depth:` from CLAUDE.md when deeper). `quick` is used only when the user explicitly asks for it.
 Launch the chosen reviewers in ONE message (parallel),
 each with: packet path, gate results, ledger path (if any), scope, and **which other reviewers run this round**
 (so `code-reviewer` covers requirements and basic efficiency when `requirements-verifier` / `performance-reviewer`
@@ -43,9 +43,11 @@ not new findings.
 
 | Depth | Reviewers | Typical use |
 |---|---|---|
-| **quick** | `code-reviewer` only — also asked to check the change against the requirement sources | Small, low-risk diffs (≤ 50 lines, no security triggers) |
-| **standard** (default) | `requirements-verifier` + `code-reviewer` + `performance-reviewer` *only if triage says performance: yes* | Normal PRs |
-| **thorough** | standard + `performance-reviewer` always + general-purpose security subagent following `${CLAUDE_PLUGIN_ROOT}/skills/secure-self-review/SKILL.md` + `pr-review-toolkit` agents if installed; run `requirements-verifier` and `code-reviewer` with `model: opus` | Auth, payments, migrations, public APIs, big refactors |
+| **standard** (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + every installed `pr-review-toolkit` review agent (code-reviewer, pr-test-analyzer, silent-failure-hunter, comment-analyzer, type-design-analyzer) | Every PR |
+| **thorough** | the same `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + `pr-review-toolkit` set, all with `model: opus` | Auth, payments, migrations, public APIs, big refactors |
+| **quick** | `code-reviewer` alone, covering requirements, security and efficiency itself — only when the user explicitly asks for it | Trivial changes, by explicit choice |
+
+The packet's focus hints (performance/security) tell reviewers where to look harder — they never skip a reviewer.
 
 **Scope** (set by review): FULL = as above · TARGETED = `requirements-verifier` + only the reviewers for the
 areas that had MAJOR fixes, packet built with `--since` · VERIFY = `fix-verifier` only, packet built with `--since`.
@@ -62,7 +64,7 @@ Reviewers: <list> · false positives dropped: <n>
 
 ## Coverage                — what this round did and did NOT check, so the user can judge it
 Depth: <d> (<why: --depth / triage: N lines, security yes/no / project minimum>)
-Reviewers run: <agent (model)>, …          Skipped: <agent — reason, e.g. "performance — triage found no data/loop/I/O changes">
+Reviewers run: <agent (model)>, …          Not run: <agent — reason; at standard/thorough only "pr-review-toolkit not installed" is acceptable>
 Files: <reviewed>/<changed> (<list any not reviewed: truncated diff, generated, binary>)
 Requirement sources: <files / PR body / none>
 Not checked: <anything outside this depth — e.g. "no dedicated security reviewer (quick)", "semgrep not installed">

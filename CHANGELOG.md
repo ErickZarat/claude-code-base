@@ -3,6 +3,20 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.5.0] — 2026-11-11
+### Changed — every review runs every dedicated reviewer again (as in 1.0)
+- Default depth is `standard` for every PR, small ones included: `requirements-verifier`, `performance-reviewer`,
+  the new dedicated `security-reviewer`, `code-reviewer`, and every installed pr-review-toolkit review agent.
+  Triage no longer skips reviewers or picks `quick`; it only adds focus hints.
+- `thorough` = the same reviewers on opus. `quick` (single combined reviewer) only when the user explicitly asks.
+- `requirements-verifier` runs in every review-cycle round again (TARGETED and VERIFY included).
+- New agent `security-reviewer` (sonnet): full security checklist incl. XSS, SSRF, open redirects, token handling,
+  IAM/Docker/CI/Terraform in the diff.
+- Template CLAUDE.md: `Minimum review depth: standard`.
+- Kept from the token work (none of it removes a reviewer): shared review packet, deterministic gates first,
+  sonnet default model, user checkpoint after each round.
+- Coverage test now also requires standard/thorough to run all four dedicated reviewers.
+
 ## [2.4.0] — 2026-11-11
 ### Fixed — review coverage lost when reviewers were merged in 1.1.0
 - Removed the per-reviewer finding caps (15 / 10) that could silently drop findings on large PRs.

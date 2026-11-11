@@ -7,7 +7,8 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
 - `.claude-plugin/marketplace.json` — marketplace catalog (name `claude-code-base`).
 - `plugins/eng/` — the plugin:
   - `skills/*/SKILL.md` — skills (invoked as `/eng:<name>`).
-  - `agents/*.md` — reviewer subagents (`requirements-verifier`, `code-reviewer`, `performance-reviewer`, `fix-verifier`);
+  - `agents/*.md` — reviewer subagents (`requirements-verifier`, `security-reviewer`, `performance-reviewer`, `code-reviewer`,
+    `fix-verifier`); standard/thorough reviews run ALL dedicated reviewers (`tests/test_review_coverage.py`);
     default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
   - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
   - `scripts/github_sync.py` — OpenSpec change → GitHub milestone/epic + task issues; `GitHubClient` port, `GhCliClient` adapter.

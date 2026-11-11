@@ -99,7 +99,7 @@ Work through the chosen findings in order BLOCKER → MAJOR → QUESTION → MIN
 |-----------------------------------|------------|------------------|
 | Any 🔴 BLOCKER, or fixes touched > ~30% of the diff, or new files/ports added | **FULL** | same set as round 1 |
 | 🟠 MAJOR | **TARGETED** | `requirements-verifier` + reviewers for the affected areas, remediation diff only |
-| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** | `fix-verifier` (haiku) only, remediation diff only |
+| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** | `requirements-verifier` + `fix-verifier`, remediation diff only |
 | Nothing changed (all declined/answered) | — | no new round |
 
 Gates (build, tests, lint) run in EVERY round — failing or missing tests are always a 🔴 BLOCKER.
@@ -110,7 +110,7 @@ into the conversation; reference the ledger. If the session is long before start
 
 ## Exit criteria (all must hold)
 - [ ] Build, full test suite and lint pass on the final commit.
-- [ ] Latest `requirements-verifier` result (FULL/TARGETED round, or quick-mode check): every requirement ✅ Done — no Missing, Partial, Wrong or Untested, and no later fix escalated.
+- [ ] `requirements-verifier` in the final round (it runs every round; `code-reviewer`'s check only in explicit quick mode): every requirement ✅ Done — no Missing, Partial, Wrong or Untested.
 - [ ] No OPEN or REOPENED BLOCKER, MAJOR or QUESTION. Every MINOR is VERIFIED or DECLINED with reason.
 - [ ] Every FIXED item from the last remediation has been VERIFIED by a reviewer (the author cannot self-verify).
 - [ ] When reviewing a PR: its body links the issue (`Closes #n`) and every *Acceptance criteria*, *Definition of Done*

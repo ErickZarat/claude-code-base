@@ -23,9 +23,9 @@ TODO: language + version, framework, database, messaging, build tool.
 | Run locally  | TODO    |
 
 ## Review
-Minimum review depth: quick
-<!-- quick | standard | thorough. /eng:review never goes below this, whatever the triage suggests.
-     Use "standard" for production services; "thorough" for auth/payments-heavy code. -->
+Minimum review depth: standard
+<!-- standard (default: every dedicated reviewer) | thorough (same reviewers on opus — auth/payments-heavy code).
+     quick (one combined reviewer) is never chosen automatically. -->
 
 ## Layout
 TODO: where domain code, adapters, config, tests and migrations live.

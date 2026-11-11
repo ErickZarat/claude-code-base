@@ -70,7 +70,7 @@ That's it. Everything below is reference.
 ```
  Plan ─────────► Tickets ─────► Per ticket (/eng:task) ──────────────────────────────────────► Merge
  /opsx:propose    /eng:epic      branch → TDD → /eng:dod → draft PR [ISSUE-n] → /eng:review → ready   you
- (you approve)                   (one ticket = one branch = one PR; small diffs → quick, cheap reviews)
+ (you approve)                   (one ticket = one branch = one PR; every PR gets every reviewer)
 ```
 
 | Step | You do | Claude does |
@@ -202,7 +202,7 @@ One ticket → one PR, with DoD and the review cycle every time.
 5. `/eng:dod` — must pass.
 6. `[ISSUE-n]` commits, push, **draft** PR titled `[ISSUE-n] <type>: <task>` with `Closes #n`, the milestone and
    labels, and checklists for acceptance criteria, DoD and pending decisions (see [Ticket tracking](#ticket-tracking)).
-7. Review cycle on the PR (small task PRs → `quick`, 1 reviewer).
+7. Review cycle on the PR — every dedicated reviewer, stopping after each round for your decision.
 8. Everything checked with evidence → PR marked ready + one verdict comment. Anything open (pending decision,
    unproven criterion, escalation) → stays draft with the open items listed. Never merges.
 
@@ -230,7 +230,7 @@ See [Review cycle in detail](#review-cycle-in-detail).
 **One** read-only review round — reports findings, fixes nothing. For someone else's PR or a quick opinion.
 ```text
 /eng:review-once 42                    # PR #42
-/eng:review-once 42 --depth thorough   # quick | standard | thorough (default: triage decides)
+/eng:review-once 42 --depth thorough   # standard (default) | thorough | quick (only when you ask)
 ```
 1. Builds a **review packet** once (`scripts/review_packet.py`): diff, changed files, requirement sources, triage.
 2. Deterministic gates first: build, tests, lint, gitleaks, semgrep (if installed).
@@ -238,17 +238,13 @@ See [Review cycle in detail](#review-cycle-in-detail).
 
    | Depth | Reviewers | When |
    |---|---|---|
-   | `quick` | `code-reviewer` (also checks requirements) | ≤ 50 changed lines, no security triggers |
-   | `standard` | `requirements-verifier` + `code-reviewer` + `performance-reviewer` if triage flags data/loops/I/O | Default |
-   | `thorough` | standard + performance always + dedicated security reviewer + pr-review-toolkit agents, on opus | Auth, payments, migrations, public APIs |
+   | `standard` (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + installed `pr-review-toolkit` agents (sonnet) | Every PR |
+   | `thorough` | the same reviewers on **opus** | Auth, payments, migrations, public APIs |
+   | `quick` | `code-reviewer` alone (covers requirements, security, efficiency itself) | **Only when you explicitly ask** |
 
-   Every depth covers the same checklist — requirements, security, tests, correctness, architecture, design,
-   readability and basic efficiency (`tests/test_review_coverage.py` enforces it). Deeper levels add **specialists
-   and stronger models**, not missing checks: standard adds a dedicated requirements traceability reviewer and a
-   performance specialist when triage flags data/loops/I/O; thorough adds a dedicated security reviewer,
-   pr-review-toolkit agents and opus.
-
-   Never below the project's minimum — set it in CLAUDE.md: `Minimum review depth: standard` (default `quick`).
+   Triage never removes a reviewer; it only adds *focus hints* (e.g. "security focus: yes"). Every check is covered
+   at every depth (`tests/test_review_coverage.py` enforces it). Set a project minimum in CLAUDE.md:
+   `Minimum review depth: standard` (default) or `thorough`.
 4. Confirms every 🔴/🟠 finding against the code; drops false positives.
 5. Report (tables): **coverage** (depth and why, reviewers run/skipped, files reviewed, what was not checked),
    gates, requirements traceability, every finding with ID and proposed fix, verdict. Asks before fixing anything.
@@ -285,9 +281,10 @@ answer with tables only.
 
 | Agent | Default model | Role |
 |---|---|---|
-| `requirements-verifier` | sonnet (opus in thorough) | Requirement → code → test traceability |
-| `code-reviewer` | sonnet (opus in thorough) | Security, tests, correctness, architecture, readability in one pass |
-| `performance-reviewer` | sonnet | Efficiency at expected scale — only when triage flags it |
+| `requirements-verifier` | sonnet (opus in thorough) | Requirement → code → test traceability — every round |
+| `security-reviewer` | sonnet (opus in thorough) | Secrets, backdoors, injection, authz, data exposure, crypto, supply chain, infra |
+| `performance-reviewer` | sonnet (opus in thorough) | Efficiency at expected scale — every standard/thorough review |
+| `code-reviewer` | sonnet (opus in thorough) | Tests, correctness, architecture, design, readability (+ requirements/security/efficiency in quick mode) |
 | `fix-verifier` | haiku | Re-review rounds: verifies fixes against the remediation diff, flags regressions |
 
 ### `requirements-verifier`
@@ -295,6 +292,11 @@ answer with tables only.
 - Builds a table **requirement → code (file:line) → test** with status ✅ Done · ⚠️ Partial · ❌ Missing · 🐞 Wrong · 🧪 Untested.
 - Lists unchecked tasks and **scope creep** (changed code that maps to no requirement).
 - Checks each requirement has a test that would fail without the code.
+
+### `security-reviewer`
+- Dedicated security pass: secrets and PII exposure, backdoors, disabled controls (TLS, CSRF, CORS), injection,
+  path traversal, XSS, SSRF, deserialization, authn/authz (IDOR, tokens), crypto and password hashing,
+  dependencies and outbound calls, IAM/Docker/CI/Terraform in the diff. Confirms or dismisses gitleaks/semgrep hits.
 
 ### `code-reviewer`
 - One pass over security (secrets, backdoors, injection, authz, dependencies), tests (missing, weak, flaky),
@@ -343,7 +345,7 @@ Exit when all criteria hold — or stop and ask you
 |---|---|---|
 | FULL | Same set as round 1 (by depth) | Whole change |
 | TARGETED | `requirements-verifier` + reviewers for the affected areas | Remediation diff |
-| VERIFY | `fix-verifier` (haiku) | Remediation diff + ledger |
+| VERIFY | `requirements-verifier` + `fix-verifier` (haiku) | Remediation diff + ledger |
 
 ### Roles
 - **Reviewers** — fresh subagents each round; raise findings, verify previous fixes (VERIFIED / REOPENED), never edit code.
@@ -475,7 +477,7 @@ Reviews are the expensive part: every reviewer subagent is a separate context. W
 
 | Lever | How |
 |---|---|
-| Fewer reviewers | Triage launches only what the diff needs; `quick` = 1 reviewer, `standard` = 2–3 |
+| All reviewers, focused | Every reviewer runs (no skipping); triage only gives focus hints |
 | Cheaper models | Reviewers on sonnet, fix verification on haiku; opus only with `--depth thorough` |
 | Read once | One review packet per round instead of each reviewer exploring the repo |
 | Tools before AI | Build/tests/lint/gitleaks/semgrep run first; reviewers don't repeat them |
@@ -485,7 +487,7 @@ Reviews are the expensive part: every reviewer subagent is a separate context. W
 Your habits matter as much:
 - **`/clear` between tasks** — a long session re-sends its whole history on every request. Start each review in a fresh session.
 - **Disable skills/plugins you don't use** in `/plugin` — every enabled skill's description is sent on every request.
-- **Pick the depth on purpose:** `quick` for small fixes, `thorough` only for risky changes.
+- **Pick the depth on purpose:** `thorough` (opus) for risky changes; `quick` only if you explicitly accept a single reviewer.
 - Check what a review cost with `/cost` (or the usage view) and compare depths.
 
 ---

@@ -56,9 +56,13 @@ REQUIRED_TOPICS = {
 }
 
 REVIEWERS_BY_DEPTH = {
-    "quick": ["code-reviewer"],
-    "standard": ["requirements-verifier", "code-reviewer"],  # performance-reviewer is conditional: not counted
+    "quick": ["code-reviewer"],  # only when explicitly requested
+    "standard": ["requirements-verifier", "performance-reviewer", "security-reviewer", "code-reviewer"],
 }
+ALL_DEDICATED_REVIEWERS = REVIEWERS_BY_DEPTH["standard"]
+REVIEW_ONCE = PLUGIN / "skills/review-once/SKILL.md"
+SECURITY_TOPICS = ["hard-coded secrets", "pii", "backdoor", "csrf", "cors", "injection", "deserializ", "authoriz",
+                   "generic error", "dependenc", "outbound", ".env.example", "path traversal", "password hashing"]
 
 
 def instructions_for(agent_names):
@@ -82,3 +86,27 @@ def test_reviewers_never_cap_the_number_of_findings(agent_file):
 def test_code_reviewer_checks_requirements_itself_in_quick_mode():
     text = (AGENTS / "code-reviewer.md").read_text().lower()
     assert "requirements-verifier is not running" in text
+
+
+def depth_row(depth):
+    return next(line for line in REVIEW_ONCE.read_text().splitlines() if line.startswith(f"| **{depth}**"))
+
+
+@pytest.mark.parametrize("depth", ["standard", "thorough"])
+def test_standard_and_thorough_run_every_dedicated_reviewer(depth):
+    row = depth_row(depth)
+    for reviewer in ALL_DEDICATED_REVIEWERS:
+        assert reviewer in row, f"{depth} no longer runs {reviewer}"
+    assert "pr-review-toolkit" in row
+    assert "only if" not in row.split("|")[2] and "if triage" not in row
+
+
+def test_dedicated_security_reviewer_covers_the_full_checklist():
+    text = (AGENTS / "security-reviewer.md").read_text().lower()
+    missing = [topic for topic in SECURITY_TOPICS if topic not in text]
+    assert missing == []
+
+
+def test_quick_is_never_chosen_automatically():
+    text = REVIEW_ONCE.read_text()
+    assert "only when the user explicitly asks" in text.lower()

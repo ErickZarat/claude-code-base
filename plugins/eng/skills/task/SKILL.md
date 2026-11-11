@@ -57,7 +57,7 @@ Run the `dod` skill. Fix everything it finds before continuing.
 
 ## 7. Review cycle on the PR
 Follow `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` for this PR (depth from `--depth`, else triage and the project
-minimum — most task PRs are small and get `quick`). It **stops after each review round** to show the findings and
+minimum — `standard` by default: every dedicated reviewer runs, also on small task PRs). It **stops after each review round** to show the findings and
 ask which to fix; continue the task only after the user answers. Pass `--auto` only if the user asked for an
 unattended run. Remediation commits also start with `<tag>`. Questions the review raises that need a
 person go into *Pending decisions*.
