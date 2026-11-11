@@ -34,4 +34,7 @@
   ISSUE (e.g. `[BUG-10] fix(refunds): …`, `[TASK-43] feat: …`); the PR body has `Closes #<n>` with the same number.
   No ticket: `[NO-ISSUE] `.
 - Every task PR gets `/eng:dod` and the review cycle before it is marked ready. Never merge on your own.
+- Team work: claim a ticket before starting (`/eng:task` assigns it to you); never start a ticket assigned to someone
+  else. Task PRs never edit `tasks.md` (closed tickets are ticked by sync). A dependency found while working is
+  recorded with `block`, not by editing `tasks.md`.
 - Never force-push, hard-reset, or rewrite shared history. Never commit generated secrets, `.env` files or build output.

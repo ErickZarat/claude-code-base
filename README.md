@@ -8,6 +8,7 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 - [Commands at a glance](#commands-at-a-glance)
 - [Daily workflow](#daily-workflow)
 - [Ticket tracking](#ticket-tracking)
+- [Working as a team](#working-as-a-team)
 - [Spec-driven extras (on top of OpenSpec)](#spec-driven-extras-on-top-of-openspec)
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
@@ -64,7 +65,8 @@ That's it. Everything below is reference.
 | `/eng:spec [change] [--before-archive]` | Spec lint + ambiguity questions before coding; traceability gate before archive |
 | `/eng:retro` | Recurring review findings → proposed one-line rules in `.claude/rules/learned.md` |
 | `/eng:epic [change]` | OpenSpec change → GitHub milestone (or parent issue) + one ticket per task |
-| `/eng:task <n\|next\|new "title" --bug>` | One ticket end to end, ending in a reviewed, ready-for-review PR |
+| `/eng:task <n\|next\|new "title" --bug>` | Claims one ticket and takes it end to end, ending in a reviewed, ready-for-review PR |
+| `/eng:status [change]` | Team board: who is on which ticket, in review, blocked (by what), ready |
 | `/eng:dod` | Definition-of-done check (build, tests, lint, diff, security) |
 | `/eng:review [PR#]` | Review → fix → re-review cycle until merge-ready |
 | `/eng:review-once [PR#]` | One read-only review round (e.g. someone else's PR) |
@@ -83,7 +85,7 @@ That's it. Everything below is reference.
 |---|---|---|
 | 1. Plan | Describe the change; approve proposal/specs/tasks | Reads the code, asks questions, writes the OpenSpec change. No code before approval |
 | 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the milestone and one ticket per task, tags `tasks.md`, commits the mapping |
-| 3. Work a ticket | Run `/eng:task next` | Branch, TDD per behaviour, reuse/interfaces, ticks the task, `/eng:dod`, draft PR, review cycle, marks PR ready, comments the verdict |
+| 3. Work a ticket | Run `/eng:task next` | Claims the ticket, branch, TDD per behaviour, reuse/interfaces, `/eng:dod`, draft PR, review cycle, marks PR ready, comments the verdict |
 | 4. Decide | Answer escalations; read the PR | Stops and asks on repeated findings, blocked fixes, product decisions |
 | 5. Merge | You merge (squash) | Never approves or merges |
 | 6. Next | `/clear`, `/eng:task next` | Picks the next ticket that is open and has no PR |
@@ -167,6 +169,31 @@ mapping; re-running `/eng:epic` only creates tickets for new tasks.
 
 ---
 
+## Working as a team
+
+Two or more devs work the same OpenSpec change in parallel without stepping on each other:
+
+| Concern | How it's handled |
+|---|---|
+| **Planning dependencies** (spec time) | `/eng:spec` reviews dependencies: for each task, what must be *merged* first (tables, endpoints, types it uses). They go in `tasks.md` as `(after: 1.1)`. The lint's **Plan** shows dependency levels, the critical path and max parallel work, and warns when the tasks form a single chain only one dev can work on |
+| **Dependencies on GitHub** | `/eng:epic` turns `after:` into native **blocked by** links (plus a `Depends on #n` line as fallback) — GitHub shows the ticket as blocked |
+| **Dependencies found later** | `/eng:task` records them with `github_sync.py block --issue 45 --by 44` — on GitHub only, no `tasks.md` edit |
+| **Who takes what** | `/eng:task` **claims** the ticket (assigns you) before branching. `next` resumes your own claims first, skips tickets assigned to others, tickets with an open PR, and blocked ones |
+| **Seeing the whole picture** | `/eng:status`: ✅ done · 👀 in review (author, PR) · 🔨 in progress · ⛔ blocked (waits for #n) · 🟢 ready, plus a hint when a review would unblock someone |
+| **Blocked by a teammate** | Take another ready ticket, or `--stack` on their branch; when their PR merges and the branch is deleted, GitHub retargets your PR to `main` |
+| **No `tasks.md` conflicts** | Task PRs never edit `tasks.md`. A closed ticket (merged PR) is done; `/eng:epic` / `/eng:status` tick closed tasks in one `[NO-ISSUE] chore` commit |
+
+```
+Dev A: /eng:status → /eng:task next      claims #43 (lane 1)
+Dev B: /eng:status → /eng:task next      #43 is claimed → claims #46 (lane 2)
+B needs #43 merged first → stack on A's branch, or take #47
+A merges #43 → B's stacked PR retargets to main; #44 becomes ready for whoever is free
+```
+Outside the plugin: branch protection with **1 required approval** (each dev reviews the other's PR after the AI review
+cycle) and the `PR title`, `PR checklist` and `API contracts` checks as required.
+
+---
+
 ## Spec-driven extras (on top of OpenSpec)
 
 OpenSpec stays the planning tool (lightweight, no phase gates). These fill its gaps with scripts and CI checks —
@@ -245,15 +272,17 @@ OpenSpec change → GitHub epic + tickets.
 ### `/eng:task`
 One ticket → one PR, with DoD and the review cycle every time.
 ```text
-/eng:task next                     # next ticket: not done, still open, no PR yet
+/eng:task next                     # next ticket: my own claim first, else unclaimed, open, no PR, not blocked
 /eng:task 44                       # a specific ticket
 /eng:task 44 --depth thorough      # force a deeper review (auth, payments, migrations…)
 /eng:task 45 --stack               # build on an unmerged earlier ticket's branch
 ```
 1. Clean working tree; one task per context (asks you to `/clear` otherwise).
 2. Reads the ticket and only the OpenSpec parts it needs.
-3. Looks up the tag (`[BUG-10]`, `[TASK-44]` …). Branch `<kind>-<n>-<slug>` from the latest default branch (asks to wait or stack if it depends on an unmerged ticket).
-4. TDD per behaviour, reuse-first, interfaces; ticks the task in `tasks.md`. Out-of-scope discoveries become proposed new tasks, not extra code.
+3. **Claims** the ticket (assigns you; stops if a teammate has it). Looks up the tag (`[BUG-10]`, `[TASK-44]` …).
+   Branch `<kind>-<n>-<slug>` from the latest default branch; if blocked, offers another ready ticket or `--stack`.
+4. TDD per behaviour, reuse-first, interfaces. Never edits `tasks.md` (sync ticks closed tickets). A dependency
+   found mid-work is recorded with `block`. Out-of-scope discoveries become proposed new tasks, not extra code.
 5. `/eng:dod` — must pass.
 6. Tagged commits, push, **draft** PR titled `[<KIND>-n] <type>: <task>` with `Closes #n`, the milestone and
    labels, and checklists for acceptance criteria, DoD and pending decisions (see [Ticket tracking](#ticket-tracking)).

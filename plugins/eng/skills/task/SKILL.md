@@ -40,17 +40,24 @@ No `github.json` lists this issue → no proposal needed:
   change (`/opsx:propose`) or let the user approve updating the spec in this PR.
 - Milestone/epic lines are omitted from the PR body; everything else in this skill applies.
 
-## 3. Branch
+## 3. Claim, then branch
+- **Claim first:** `SYNC claim --issue <n>` assigns the ticket to you, so a teammate's `next` skips it. If it is
+  assigned to someone else, stop and tell the user (`--force` only if they confirm the teammate handed it over).
 - `git fetch origin` then `git switch -c "$(SYNC branch --issue <n> --title "<ticket title>")" origin/<default-branch>` (e.g. `bug-10-null-total`).
-- **Dependency check:** if the task needs code from an earlier ticket whose PR is not merged, ask: wait / merge it first,
-  or stack (`--stack`): branch from that PR's branch, open this PR against it, write `Depends on #<pr>` in the body.
+- **Blocked:** if `next` printed `blocked: …`, or the task needs code from a ticket whose PR is not merged, offer:
+  **take another ready ticket** (`SYNC status`) or **stack** (`--stack`): branch from that PR's branch, open this PR
+  against it, write `Depends on #<pr>` in the body. When that PR is merged and its branch deleted, GitHub retargets
+  this PR to the default branch automatically.
+- **Dependency discovered while working** (the task turns out to need another ticket first):
+  `SYNC block --issue <n> --by <other>` — recorded on GitHub only; never edit `tasks.md` for it. Then wait or stack.
 
 ## 4. Implement
 `tdd` for every acceptance criterion (failing test shown first) — each test carries a marker comment with the
 scenario it proves (`// spec: billing/refund-above-total-is-rejected`); `reuse-first` before new code,
 `interface-first-design` for anything external; the `decision` skill when you choose between real alternatives;
 contract changes (.proto/OpenAPI/events) stay backwards compatible unless the spec says otherwise.
-Then mark the task `[x]` in `tasks.md` on this branch.
+Do **not** edit `tasks.md` in a task PR (parallel PRs would conflict on it): the merged PR closes the ticket, and
+`/eng:epic` / `/eng:status` tick closed tasks in one commit.
 A question only a person can answer (product rule, naming, scope) → don't guess: record it as a pending decision.
 
 ## 5. Definition of done

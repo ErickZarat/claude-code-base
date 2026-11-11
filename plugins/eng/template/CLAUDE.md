@@ -36,6 +36,7 @@ TODO: where domain code, adapters, config, tests and migrations live.
   `/eng:task next` per ticket (one branch + one PR each, DoD + review cycle on every PR) → merge →
   `/eng:spec --before-archive` → `/opsx:archive`.
 - Bugs and small fixes: `/eng:task <issue>` or `/eng:task new "title" --bug` (lite path, no proposal).
+- Team: `/eng:status` shows who is on what, what is blocked and what is ready; `/eng:task next` claims the next ready ticket.
 - Decisions: `docs/decisions/` (`decision` skill). Recurring review findings → `/eng:retro` → `.claude/rules/learned.md`.
 - Otherwise: use the `plan-change` skill before writing code for anything beyond a one-file fix.
 

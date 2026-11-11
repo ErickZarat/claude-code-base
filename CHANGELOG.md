@@ -3,6 +3,19 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.9.0] — 2026-11-11
+### Added — working as a team
+- **Spec-time dependencies:** `/eng:spec` reviews task dependencies (what must be merged first) and the lint prints a
+  **Plan** — dependency levels, critical path, max parallel — warning when tasks form a single chain.
+- **Native GitHub "blocked by" links** from `tasks.md` `after:` (with `Depends on #n` fallback); re-sync adds
+  dependencies planned later.
+- **`block`**: dependencies discovered while working are recorded on GitHub only (no `tasks.md` edit).
+- **Claim:** `/eng:task` assigns the ticket before branching and refuses tickets assigned to others; `next` resumes
+  my claims first and skips others', open-PR and blocked tickets.
+- **`/eng:status`** board: done · in review · in progress · blocked (by what) · ready, with unblock hints.
+### Changed
+- Task PRs no longer tick `tasks.md` (parallel PRs conflicted on it); sync ticks tasks whose ticket is closed.
+
 ## [2.8.0] — 2026-11-11
 ### Added — spec-driven extras on top of OpenSpec (lightweight: scripts and CI, AI only at checkpoints)
 1. **Spec lint** (`spec_lint.py`, `/eng:spec`): structure errors, vague wording, missing error cases, uncovered
