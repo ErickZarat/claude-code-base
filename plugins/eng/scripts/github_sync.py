@@ -32,6 +32,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from openspec_model import TASK_ANNOTATION  # noqa: E402  (shared with spec_lint / trace)
+
 DEFAULT_KIND = "ISSUE"  # tag kind when the issue has no type and no type label
 # Label → tag kind, in priority order (an issue labelled both bug and task is a BUG).
 KIND_BY_LABEL = [
@@ -55,6 +58,7 @@ EXISTING_TAG = re.compile(r"\[[A-Z][A-Z0-9]*-(\d+)\]\s*")  # [ISSUE-12], [TASK-4
 TRACKING_MODES = ("milestone", "epic", "both")
 CHANGE_LABEL_COLOR = "1d76db"
 TASK_KIND = "TASK"  # tickets created by sync carry the `task` label
+SIZE_LABEL_COLOR = "c5def5"
 
 LABELS = {
     "epic": ("5319e7", "OpenSpec change tracked as an epic"),
@@ -83,6 +87,8 @@ class WorkItem:
     line_index: int
     issue_number: int | None = None
     subtasks: list[str] = field(default_factory=list)
+    after: list[str] = field(default_factory=list)  # keys of tasks that must be done first: "(after: 1.1, 1.2)"
+    size: str | None = None                         # "(size: S)" → label size:S
 
 
 @dataclass
@@ -246,13 +252,29 @@ def parse_work_items(lines: list[str], group_by: str) -> list[WorkItem]:
         if not task_match:
             continue
         title, tagged_number = strip_tag(task_match.group("rest"))
+        title, after, size = split_annotation(title)
         done = task_match.group("mark").lower() == "x"
         if group_by == "section" and current_section is not None:
             current_section.subtasks.append(f"- [{'x' if done else ' '}] {task_match.group('key')} {title}")
             current_section.done = current_section.done and done
         else:
-            items.append(WorkItem(task_match.group("key"), title, done, index, tagged_number))
+            items.append(WorkItem(task_match.group("key"), title, done, index, tagged_number, after=after, size=size))
     return items
+
+
+def split_annotation(title: str) -> tuple[str, list[str], str | None]:
+    """'POST /refunds (after: 1.1; size: M)' → ('POST /refunds', ['1.1'], 'M')."""
+    annotation = TASK_ANNOTATION.search(title)
+    if not annotation:
+        return title, [], None
+    after, size = [], None
+    for part in annotation.group("body").split(";"):
+        name, _, value = part.partition(":")
+        if name.strip().lower() == "after":
+            after = [key.strip() for key in value.split(",") if key.strip()]
+        elif name.strip().lower() == "size":
+            size = value.strip().upper()
+    return title[:annotation.start()].strip(), after, size
 
 
 def tag_line(line: str, item_key: str, issue_number: int, kind: str = DEFAULT_KIND) -> str:
@@ -297,10 +319,12 @@ def relative_change_path(change_dir: Path) -> str:
     return "/".join(parts[parts.index("openspec"):]) if "openspec" in parts else str(change_dir)
 
 
-def task_issue_body(item: WorkItem, parent_lines: list[str], change_path: str) -> str:
+def task_issue_body(item: WorkItem, parent_lines: list[str], change_path: str,
+                    dependency_numbers: list[int] | None = None) -> str:
     subtasks = "\n".join(item.subtasks)
+    dependency_lines = [f"Depends on #{number}" for number in dependency_numbers or []]
     return (
-        "\n".join(parent_lines) + "\n\n"
+        "\n".join(parent_lines + dependency_lines) + "\n\n"
         f"OpenSpec change: `{change_path}` — task `{item.key}`. Read `proposal.md`, `design.md` (if any) and the "
         f"delta specs there for requirements and scenarios.\n\n"
         + (f"## Subtasks\n{subtasks}\n\n" if subtasks else "")
@@ -383,9 +407,16 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
 
     parent_lines = ([f"Part of #{report.epic_number}"] if use_epic else []) + \
                    ([f"Milestone: {change_title}"] if use_milestone else [])
+    numbers_by_key = {item.key: item.issue_number for item in items if item.issue_number}
+    for size in sorted({item.size for item in items_to_create if item.size}):
+        client.ensure_label(f"size:{size}", SIZE_LABEL_COLOR, f"Task size {size}")
     for item in items_to_create:
-        created = client.create_issue(item_label(item), task_issue_body(item, parent_lines, change_path),
-                                      ["task", change_label], report.milestone_number if use_milestone else None)
+        dependency_numbers = [numbers_by_key[key] for key in item.after if key in numbers_by_key]
+        labels = ["task", change_label] + ([f"size:{item.size}"] if item.size else [])
+        created = client.create_issue(item_label(item),
+                                      task_issue_body(item, parent_lines, change_path, dependency_numbers),
+                                      labels, report.milestone_number if use_milestone else None)
+        numbers_by_key[item.key] = created.number
         item.issue_number = created.number
         report.created_issue_numbers.append(created.number)
         if use_epic and not client.add_sub_issue(report.epic_number, created.issue_id):
@@ -405,14 +436,50 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
     return report
 
 
-def next_task(change_dir: Path, client: GitHubClient) -> int | None:
-    """First ticket in tasks.md order that is not done, still open, and has no open PR."""
+def _items_with_numbers(change_dir: Path) -> list[WorkItem]:
     mapping = load_mapping(change_dir)
     items = parse_work_items((change_dir / "tasks.md").read_text().splitlines(), mapping.get("group_by", "task"))
+    for item in items:
+        item.issue_number = item.issue_number or mapping["items"].get(item.key)
+    return items
+
+
+def _unfinished_dependencies(item: WorkItem, items_by_key: dict[str, WorkItem], client: GitHubClient) -> list[int]:
+    """Issue numbers of dependencies that are neither ticked in tasks.md nor closed (= merged) on GitHub."""
+    blocking = []
+    for key in item.after:
+        dependency = items_by_key.get(key)
+        if dependency is None or dependency.done:
+            continue
+        if dependency.issue_number is None or client.is_issue_open(dependency.issue_number):
+            blocking.append(dependency.issue_number)
+    return blocking
+
+
+def blocked_tasks(change_dir: Path, client: GitHubClient) -> dict[int, list[int]]:
+    """Open tickets whose dependencies are not finished yet → the tickets they wait for."""
+    items = _items_with_numbers(change_dir)
+    items_by_key = {item.key: item for item in items}
+    blocked = {}
+    for item in items:
+        if item.done or item.issue_number is None:
+            continue
+        waiting_for = _unfinished_dependencies(item, items_by_key, client)
+        if waiting_for:
+            blocked[item.issue_number] = waiting_for
+    return blocked
+
+
+def next_task(change_dir: Path, client: GitHubClient) -> int | None:
+    """First ticket in tasks.md order that is not done, still open, has no open PR and no unfinished dependency."""
+    items = _items_with_numbers(change_dir)
+    items_by_key = {item.key: item for item in items}
     open_pr_titles = " ".join(client.open_pull_request_titles())
     for item in items:
-        number = item.issue_number or mapping["items"].get(item.key)
+        number = item.issue_number
         if item.done or number is None or has_tag_for(number, open_pr_titles):
+            continue
+        if _unfinished_dependencies(item, items_by_key, client):
             continue
         if client.is_issue_open(number):
             return number
@@ -467,6 +534,9 @@ def main() -> int:
         if arguments.command == "next":
             number = next_task(change_dir, client)
             print(number if number else "none")
+            if not number:
+                for waiting, blockers in blocked_tasks(change_dir, client).items():
+                    print(f"blocked: #{waiting} waits for {', '.join(f'#{n}' for n in blockers)}")
             return 0
         report = sync_change(change_dir, client, repo, arguments.group_by, arguments.dry_run, arguments.tracking)
     except SyncError as error:

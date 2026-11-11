@@ -461,3 +461,55 @@ def test_gh_cli_client_handles_repos_without_issue_types():
     client = github_sync.GhCliClient("acme/shop", run=lambda command: json.dumps({"labels": [{"name": "bug"}]}))
 
     assert client.issue_type_and_labels(10) == (None, ["bug"])
+
+
+# --- v2.8: task dependencies and size ------------------------------------------------------------
+
+DEPENDENT_TASKS = """## 1. Refunds
+- [ ] 1.1 Add refunds table migration (size: S)
+- [ ] 1.2 POST /refunds endpoint (after: 1.1; size: M)
+- [ ] 1.3 Reject refunds above total (after: 1.2)
+"""
+
+
+def test_annotations_become_dependencies_and_size_labels_not_title_text(change_dir):
+    (change_dir / "tasks.md").write_text(DEPENDENT_TASKS)
+    client = FakeGitHubClient()
+
+    sync(change_dir, client)
+
+    mapping = json.loads((change_dir / "github.json").read_text())["items"]
+    endpoint = client.issues[mapping["1.2"]]
+    assert endpoint["title"] == "1.2 POST /refunds endpoint"
+    assert "size:M" in endpoint["labels"] and "size:S" in client.issues[mapping["1.1"]]["labels"]
+    assert f"Depends on #{mapping['1.1']}" in endpoint["body"]
+    assert {"size:S", "size:M"} <= client.labels
+    assert "(after: 1.1; size: M)" in (change_dir / "tasks.md").read_text()  # annotation kept in tasks.md
+
+
+def test_next_task_waits_for_dependencies(change_dir):
+    (change_dir / "tasks.md").write_text(DEPENDENT_TASKS)
+    client = FakeGitHubClient()
+    sync(change_dir, client)
+    mapping = json.loads((change_dir / "github.json").read_text())["items"]
+
+    assert github_sync.next_task(change_dir, client) == mapping["1.1"]
+
+    client.open_pr_titles.append(f"[TASK-{mapping['1.1']}] feat: migration")  # 1.1 in progress, not merged
+    assert github_sync.next_task(change_dir, client) is None  # 1.2 is blocked by 1.1
+
+    client.open_pr_titles.clear()
+    client.closed_issue_numbers.add(mapping["1.1"])  # 1.1 merged → issue closed
+    assert github_sync.next_task(change_dir, client) == mapping["1.2"]
+
+
+def test_blocked_tasks_are_explained(change_dir):
+    (change_dir / "tasks.md").write_text(DEPENDENT_TASKS)
+    client = FakeGitHubClient()
+    sync(change_dir, client)
+    mapping = json.loads((change_dir / "github.json").read_text())["items"]
+    client.open_pr_titles.append(f"[TASK-{mapping['1.1']}] feat: migration")
+
+    blocked = github_sync.blocked_tasks(change_dir, client)
+
+    assert blocked == {mapping["1.2"]: [mapping["1.1"]], mapping["1.3"]: [mapping["1.2"]]}
