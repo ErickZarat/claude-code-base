@@ -319,6 +319,10 @@ def parse_work_items(lines: list[str], group_by: str) -> list[WorkItem]:
         if group_by == "section" and current_section is not None:
             current_section.subtasks.append(f"- [{'x' if done else ' '}] {task_match.group('key')} {title}")
             current_section.done = current_section.done and done
+            for dependency in after:  # a task depending on another section makes the whole section depend on it
+                dependency_section = dependency.split(".")[0]
+                if dependency_section != current_section.key and dependency_section not in current_section.after:
+                    current_section.after.append(dependency_section)
         else:
             items.append(WorkItem(task_match.group("key"), title, done, index, tagged_number, after=after, size=size))
     return items
@@ -441,13 +445,20 @@ def link_planned_dependencies(client: GitHubClient, items: list[WorkItem], numbe
 
 
 def tick_closed_tasks(client: GitHubClient, items: list[WorkItem], lines: list[str]) -> None:
-    """A closed ticket means its PR was merged: tick the task in tasks.md (task PRs never edit tasks.md)."""
+    """A closed ticket means its PR was merged: tick its task — or every task of its section — in tasks.md
+    (PRs never edit tasks.md, so parallel PRs can't conflict on it)."""
     for item in items:
-        if item.done or not item.issue_number or not TASK_LINE.match(lines[item.line_index]):
+        if item.done or not item.issue_number or client.is_issue_open(item.issue_number):
             continue
-        if not client.is_issue_open(item.issue_number):
+        if TASK_LINE.match(lines[item.line_index]):
             lines[item.line_index] = lines[item.line_index].replace("- [ ]", "- [x]", 1)
-            item.done = True
+        else:  # section heading: tick every task until the next section
+            index = item.line_index + 1
+            while index < len(lines) and not SECTION_LINE.match(lines[index]):
+                if TASK_LINE.match(lines[index]):
+                    lines[index] = lines[index].replace("- [ ]", "- [x]", 1)
+                index += 1
+        item.done = True
 
 
 def block(client: GitHubClient, issue_number: int, by: int) -> bool:
@@ -485,15 +496,25 @@ def resolve_tracking(requested: str | None, mapping: dict) -> str:
     return "epic" if mapping.get("epic") else "milestone"
 
 
-def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str = "task",
+def resolve_group_by(requested: str | None, mapping: dict) -> str:
+    """Explicit choice wins; a change keeps the granularity it was synced with; new changes get one PR per section."""
+    if requested:
+        return requested
+    if mapping.get("group_by"):
+        return mapping["group_by"]
+    return "task" if mapping.get("items") else "section"
+
+
+def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str | None = None,
                 dry_run: bool = False, tracking: str | None = None) -> SyncReport:
     tasks_file = change_dir / "tasks.md"
     if not tasks_file.is_file():
         raise SyncError(f"{tasks_file} not found — create the OpenSpec change (with tasks.md) first")
 
     lines = tasks_file.read_text().splitlines()
-    items = parse_work_items(lines, group_by)
     mapping = load_mapping(change_dir)
+    group_by = resolve_group_by(group_by, mapping)
+    items = parse_work_items(lines, group_by)
     tracking = resolve_tracking(tracking, mapping)
     if tracking not in TRACKING_MODES:
         raise SyncError(f"unknown tracking mode {tracking!r}; use one of {', '.join(TRACKING_MODES)}")
@@ -664,7 +685,8 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     sync_parser = commands.add_parser("sync")
     sync_parser.add_argument("--change", required=True)
-    sync_parser.add_argument("--group-by", choices=["task", "section"], default="task")
+    sync_parser.add_argument("--group-by", choices=["task", "section"],
+                             help="default: section (one PR per '## N.' section), or what the change used before")
     sync_parser.add_argument("--tracking", choices=TRACKING_MODES, help="default: milestone (or what the change used before)")
     sync_parser.add_argument("--dry-run", action="store_true")
     sync_parser.add_argument("--repo")

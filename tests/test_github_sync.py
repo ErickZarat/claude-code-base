@@ -127,12 +127,15 @@ def change_dir(tmp_path):
 
 
 def sync(change_dir, client, **options):
-    """Parent-issue mode (tracking="epic") — the pre-2.1 behaviour most tests below cover."""
+    """Parent-issue mode (tracking="epic"), one ticket per task — the behaviour most tests below cover."""
     options.setdefault("tracking", "epic")
+    options.setdefault("group_by", "task")
     return github_sync.sync_change(change_dir, client, repo="acme/shop", **options)
 
 
 def sync_default(change_dir, client, **options):
+    """Default tracking (milestone), one ticket per task."""
+    options.setdefault("group_by", "task")
     return github_sync.sync_change(change_dir, client, repo="acme/shop", **options)
 
 
@@ -689,3 +692,72 @@ def test_gh_cli_client_treats_unavailable_dependencies_as_none():
 
     client = github_sync.GhCliClient("acme/shop", run=failing_run)
     assert client.blocked_by(3) == [] and client.add_blocked_by(3, 4000) is False
+
+
+# --- v3.0: one PR per section is the default -------------------------------------------------------
+
+SECTION_TASKS = """## 1. Data model
+- [ ] 1.1 Add refunds table migration
+- [ ] 1.2 Add Refund entity (after: 1.1)
+
+## 2. API
+- [ ] 2.1 POST /refunds endpoint (after: 1.2)
+- [ ] 2.2 Reject refunds above the order total (after: 2.1)
+
+## 3. Emails
+- [ ] 3.1 Refund confirmation template
+"""
+
+
+def test_default_is_one_ticket_per_section(change_dir):
+    (change_dir / "tasks.md").write_text(SECTION_TASKS)
+    client = FakeGitHubClient()
+
+    github_sync.sync_change(change_dir, client, repo="acme/shop")
+
+    titles = sorted(issue["title"] for issue in task_issues(client).values())
+    assert titles == ["1. Data model", "2. API", "3. Emails"]
+    assert json.loads((change_dir / "github.json").read_text())["group_by"] == "section"
+
+
+def test_section_dependencies_come_from_task_dependencies_across_sections(change_dir):
+    (change_dir / "tasks.md").write_text(SECTION_TASKS)
+    client = FakeGitHubClient()
+
+    github_sync.sync_change(change_dir, client, repo="acme/shop")
+
+    items = json.loads((change_dir / "github.json").read_text())["items"]
+    assert client.blocked_by(items["2"]) == [items["1"]]   # 2.1 after 1.2 → section 2 after section 1
+    assert client.blocked_by(items["1"]) == []             # 1.2 after 1.1 is inside the section
+    assert client.blocked_by(items["3"]) == []
+    assert github_sync.next_task(change_dir, client) == items["1"]
+    client.add_assignee(items["1"], "dev-b")
+    assert github_sync.next_task(change_dir, client) == items["3"]  # 2 is blocked by 1, 3 is free
+
+
+def test_existing_task_mode_changes_keep_their_granularity(change_dir):
+    client = FakeGitHubClient()
+    sync(change_dir, client)  # task mode
+    mapping_file = change_dir / "github.json"
+    legacy = json.loads(mapping_file.read_text())
+    legacy.pop("group_by")
+    mapping_file.write_text(json.dumps(legacy))
+    (change_dir / "tasks.md").write_text((change_dir / "tasks.md").read_text() + "- [ ] 2.3 Email the customer\n")
+
+    report = github_sync.sync_change(change_dir, client, repo="acme/shop", tracking="epic")
+
+    assert client.issues[report.created_issue_numbers[0]]["title"] == "2.3 Email the customer"
+
+
+def test_closed_section_ticket_ticks_all_its_tasks(change_dir):
+    (change_dir / "tasks.md").write_text(SECTION_TASKS)
+    client = FakeGitHubClient()
+    github_sync.sync_change(change_dir, client, repo="acme/shop")
+    items = json.loads((change_dir / "github.json").read_text())["items"]
+    client.closed_issue_numbers.add(items["1"])
+
+    github_sync.sync_change(change_dir, client, repo="acme/shop")
+
+    text = (change_dir / "tasks.md").read_text()
+    assert "- [x] 1.1 Add refunds table migration" in text and "- [x] 1.2 Add Refund entity" in text
+    assert "- [ ] 2.1 POST /refunds endpoint" in text

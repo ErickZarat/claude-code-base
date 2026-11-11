@@ -18,6 +18,7 @@ SCENARIO_HEADING = re.compile(r"^####\s+Scenario:\s*(.+?)\s*$")
 TASK_LINE = re.compile(r"^\s*- \[(?P<mark>[ xX])\] (?P<key>\d+(?:\.\d+)+)\s+(?P<rest>.*)$")
 TASK_ANNOTATION = re.compile(r"\s*\((?P<body>[^()]*\b(?:after|size|req)\s*:[^()]*)\)\s*$", re.IGNORECASE)
 ISSUE_TAG = re.compile(r"\[[A-Z][A-Z0-9]*-\d+\]\s*")
+SECTION_LINE = re.compile(r"^## (?P<key>\d+)\.\s+(?P<rest>.*)$")
 
 
 def slugify(text: str) -> str:
@@ -154,3 +155,24 @@ def plan_levels(tasks: list[Task]) -> tuple[list[list[str]], list[str]]:
     levels = [[key for key in open_tasks if depth[key] == level] for level in range(1, max(depth.values(), default=0) + 1)]
     critical = max(longest_chain.values(), key=len, default=[])
     return levels, critical
+
+
+def parse_sections(tasks_file: Path) -> list[Task]:
+    """Sections of tasks.md as PR-sized units (one PR per section): done when all their tasks are done; a section
+    depends on another when one of its tasks has `after:` pointing into that other section."""
+    sections: list[Task] = []
+    for line_number, line in enumerate(tasks_file.read_text().splitlines(), start=1):
+        match = SECTION_LINE.match(line)
+        if match:
+            sections.append(Task(match.group("key"), ISSUE_TAG.sub("", match.group("rest")).strip(), True, line_number))
+    by_key = {section.key: section for section in sections}
+    for task in parse_tasks(tasks_file):
+        section = by_key.get(task.key.split(".")[0])
+        if section is None:
+            continue
+        section.done = section.done and task.done
+        for dependency in task.after:
+            dependency_section = dependency.split(".")[0]
+            if dependency_section != section.key and dependency_section not in section.after:
+                section.after.append(dependency_section)
+    return sections

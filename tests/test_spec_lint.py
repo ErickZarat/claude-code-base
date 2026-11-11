@@ -161,10 +161,24 @@ def test_plan_shows_levels_critical_path_and_parallel_capacity(tmp_path):
     assert "single chain" not in output
 
 
-def test_single_chain_is_warned(tmp_path):
-    tasks = "## 1. Refunds\n- [ ] 1.1 Refund creation a\n- [ ] 1.2 Refund creation b (after: 1.1)\n- [ ] 1.3 Refund creation c (after: 1.2)\n"
+def test_sections_forming_a_single_chain_are_warned(tmp_path):
+    tasks = ("## 1. Refund creation a\n- [ ] 1.1 Refund creation a\n"
+             "## 2. Refund creation b\n- [ ] 2.1 Refund creation b (after: 1.1)\n"
+             "## 3. Refund creation c\n- [ ] 3.1 Refund creation c (after: 2.1)\n")
     output = lint(make_change(tmp_path, tasks=tasks)).stdout
     assert "WARN" in output and "single chain" in output
+
+
+def test_a_chain_inside_one_section_is_fine(tmp_path):
+    tasks = "## 1. Refunds\n- [ ] 1.1 Refund creation a\n- [ ] 1.2 Refund creation b (after: 1.1)\n- [ ] 1.3 Refund creation c (after: 1.2)\n"
+    assert "single chain" not in lint(make_change(tmp_path, tasks=tasks)).stdout
+
+
+def test_pr_plan_shows_sections_that_can_run_in_parallel(tmp_path):
+    output = lint(make_change(tmp_path, tasks=LANES_TASKS)).stdout
+    assert "PR plan (one PR per section)" in output
+    assert "level 1: 1" in output.split("PR plan")[1]
+    assert "level 2: 2" in output.split("PR plan")[1]
 
 
 def test_done_tasks_are_left_out_of_the_plan(tmp_path):

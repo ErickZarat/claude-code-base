@@ -19,7 +19,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from openspec_model import Requirement, Task, change_spec_files, parse_spec, parse_tasks, plan_levels  # noqa: E402
+from openspec_model import (Requirement, Task, change_spec_files, parse_sections, parse_spec,  # noqa: E402
+                            parse_tasks, plan_levels)
 
 VAGUE_WORDS = re.compile(
     r"\b(quickly|fast|efficient(?:ly)?|properly|appropriate(?:ly)?|user-friendly|easy|easily|intuitive(?:ly)?|"
@@ -120,19 +121,25 @@ def check_task_dependencies(tasks: list[Task], tasks_file: Path, report: Report)
         visit(key, [])
 
 
-def describe_plan(tasks: list[Task], tasks_file: Path, report: Report) -> None:
-    """Dependency levels (what can run in parallel), the critical path, and a warning when only one dev can work."""
-    levels, critical_path = plan_levels(tasks)
+def plan_lines(title: str, units: list[Task]) -> tuple[list[str], int, int]:
+    levels, critical_path = plan_levels(units)
     if not levels:
-        return
-    report.plan.append("Plan (open tasks by dependency level — same level can run in parallel):")
-    report.plan.extend(f"  level {number}: {', '.join(keys)}" for number, keys in enumerate(levels, start=1))
+        return [], 0, 0
+    lines = [title]
+    lines.extend(f"  level {number}: {', '.join(keys)}" for number, keys in enumerate(levels, start=1))
     max_parallel = max(len(keys) for keys in levels)
-    report.plan.append(f"  critical path: {' → '.join(critical_path)} · max parallel: {max_parallel}")
-    open_count = sum(len(keys) for keys in levels)
-    if max_parallel == 1 and open_count >= MIN_TASKS_FOR_CHAIN_WARNING:
-        report.warn(tasks_file, None, "tasks form a single chain — only one dev can work at a time; "
-                                      "check whether every 'after:' is a real dependency")
+    lines.append(f"  critical path: {' → '.join(critical_path)} · max parallel: {max_parallel}")
+    return lines, max_parallel, sum(len(keys) for keys in levels)
+
+
+def describe_plan(tasks: list[Task], tasks_file: Path, report: Report) -> None:
+    """Dependency levels for tasks (commit order) and sections (one PR each — what devs can do in parallel)."""
+    task_lines, _, _ = plan_lines("Plan (open tasks by dependency level — same level can run in parallel):", tasks)
+    section_lines, max_parallel, open_sections = plan_lines("PR plan (one PR per section):", parse_sections(tasks_file))
+    report.plan.extend(task_lines + section_lines)
+    if max_parallel == 1 and open_sections >= MIN_TASKS_FOR_CHAIN_WARNING:
+        report.warn(tasks_file, None, "sections form a single chain — only one PR (one dev) can be in progress at a "
+                                      "time; check whether every cross-section 'after:' is a real dependency")
 
 
 def lint_change(change_dir: Path) -> Report:
