@@ -18,6 +18,8 @@
   If something cannot be finished, stop and say so explicitly.
 - Never fake success: do not hard-code values to make tests pass, skip or delete failing tests,
   or weaken assertions. Fix the cause or report it.
+- If a hook, permission rule or guard blocks an action, never reword or obfuscate to get around it.
+  Fix what it flagged, or stop and tell the user. Same error twice in a row → stop and ask.
 
 ## After writing code
 - Run the project's build, tests and linter (commands in CLAUDE.md). Report real output, not assumptions.

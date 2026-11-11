@@ -22,6 +22,9 @@ behaviour the diff does not show (callers, the rest of a function, an existing t
    edge cases included.
 4. List changed code that maps to no requirement (scope creep) and unchecked `tasks.md` items.
 
+## Ledger matching
+If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.
+
 ## Output — table only, no prose beyond one-line notes
 ```
 | ID | Requirement | Status | Code | Test | Note |

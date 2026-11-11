@@ -236,13 +236,16 @@ Exit when all criteria hold — or stop and ask you
 
 ### When it stops and asks you
 - Max rounds reached (default 3).
-- Same finding reopened twice.
+- A finding's fingerprint (component · problem class) seen a 3rd time — variants of the same problem count.
+  On the 2nd time the author must fix the root cause across all variants, not just the reported example.
+- A hook, permission or tool error blocks the same fix twice (Claude never rewords content to get past a guard).
 - Author disagrees with a 🔴/🟠 finding.
 - A question needs a product/business decision.
 
 ### The ledger
 `openspec/changes/<change>/reviews/ledger.md` (OpenSpec) or `.reviews/<branch>/ledger.md`. One table per round with
-stable IDs (`R1-3`) and statuses `OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED`. Commit it as the PR's
+stable IDs (`R1-3`), a fingerprint and `Seen` count per finding, and statuses
+`OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED`. Commit it as the PR's
 audit trail, or add `.reviews/` to `.gitignore`.
 
 ### Final report
@@ -288,7 +291,10 @@ Five layers, from fastest to last line of defence:
 4. **security-guidance plugin** — model review of changes in-session.
 5. **gitleaks** — pre-commit hook (`pre-commit install`) and in CI.
 
-False positive on a deliberate fake value in a test? Add `pragma: allowlist secret` on that line.
+In **test files** (`src/test/`, `*Test.kt`, `*.spec.ts`, `test_*.py`, `*_test.go`, …) only real token formats are
+blocked; `password = "…"` and `user:pass@host` style fakes are allowed so you can test credential handling.
+Values containing `fake`, `mock`, `test` or `sample` count as placeholders everywhere. Anything else that's a
+deliberate fake: add `pragma: allowlist secret` on that line. Block messages show the line with the secret redacted.
 
 ---
 

@@ -24,6 +24,9 @@ gitleaks/semgrep) already ran — the caller tells you their results; do NOT rep
 5. **Readability** — unclear names, missing *why* comments on non-obvious logic, missing doc comments on public APIs,
    leftover debug code/TODOs/commented-out code.
 
+## Ledger matching
+If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.
+
 ## Output — table only
 ```
 | Sev | Area | Location | Finding | Fix |

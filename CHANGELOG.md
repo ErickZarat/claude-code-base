@@ -3,6 +3,19 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [1.2.0] — 2026-11-10
+### Fixed — review-cycle infinite loop (same finding reopened 3×, fixes blocked by the secret guard)
+- Secret guard: heuristic checks (`password = "…"`, `user:pass@host` URLs) are skipped in test files, so tests can
+  prove credentials don't leak. Real token formats (AWS, GitHub, Stripe, private keys, JWT…) are still blocked
+  everywhere. Values containing fake/mock/test/sample count as placeholders.
+- Secret guard messages show the flagged line (secret redacted) and tell Claude not to retry with reworded content.
+- review-cycle: findings carry a fingerprint (component · problem class) matched against all ledger rows, so
+  variants of a known problem reuse the ID instead of becoming new findings. `Seen` count in the ledger.
+  2nd occurrence → fix the root cause across all variants; 3rd → stop and ask. A hook/tool blocking the same fix
+  twice → stop and ask.
+- Rule (workflow.md): never reword/obfuscate to get past a hook or guard; same error twice → stop and ask.
+  Re-run `/eng-standards:setup` in projects to receive it.
+
 ## [1.1.0] — 2026-11-10
 ### Changed — token usage (reviews were ~79% of usage, driven by subagents)
 - Reviewer agents default to cheaper models: `requirements-verifier`, `performance-reviewer` → sonnet

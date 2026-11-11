@@ -32,7 +32,9 @@ if installed. A failing gate is a 🔴 BLOCKER. Pass a one-line result per gate 
 
 ## 4. Pick reviewers by depth
 Depth = `--depth` if given, else the packet's suggested depth. Launch the chosen reviewers in ONE message (parallel),
-each with: packet path, gate results, ledger path (if any), scope.
+each with: packet path, gate results, ledger path (if any), scope. With a ledger, tell reviewers: match every finding
+against ALL ledger rows by fingerprint (component · problem class) and reuse the ID — variants of a known problem are
+not new findings.
 
 | Depth | Reviewers | Typical use |
 |---|---|---|

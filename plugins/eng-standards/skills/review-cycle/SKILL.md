@@ -24,6 +24,12 @@ Two roles, never mixed:
 
 Finding IDs are stable across rounds: `R<round>-<n>` (e.g. `R1-3`). Never renumber.
 
+**Recurrence tracking (prevents loops).** Each finding has a *fingerprint*: `<file or component> · <problem class>`
+(e.g. `DatabaseConfig · credential leak in JDBC URL`). Before adding a finding, match it against EVERY ledger row,
+whatever its status, by fingerprint — not by exact wording or line number. A match reuses the existing ID, is marked
+REOPENED, and increments its `Seen` count. A variant of the same problem (another URL format, another endpoint)
+is the same fingerprint, not a new finding.
+
 ## The ledger (single source of truth)
 Location: `openspec/changes/<change>/reviews/ledger.md` if an OpenSpec change is active, otherwise
 `.reviews/<branch-name>/ledger.md`. Create it in round 1; append every round; never delete history.
@@ -32,7 +38,7 @@ Location: `openspec/changes/<change>/reviews/ledger.md` if an OpenSpec change is
 # Review ledger — <change / PR> (base: <base>)
 
 ## Round 1 — <date> — scope: FULL — verdict: REQUEST CHANGES
-| ID | Sev | Type | Area | Location | Finding | Status | Resolution |
+| ID | Sev | Type | Area | Fingerprint | Location | Finding | Seen | Status | Resolution |
 |----|-----|------|------|----------|---------|--------|------------|
 | R1-1 | 🔴 | issue | requirements | — | R3 "refund over limit returns 422" has no test | VERIFIED | test `rejects refund above limit` + fix (abc123) |
 | R1-2 | 🟡 | suggestion | quality | Foo.kt:42 | rename `proc` | DECLINED | public API, rename in separate change |
@@ -85,7 +91,13 @@ into the conversation; reference the ledger. If the session is long before start
 
 ## Stop conditions
 - Default max **3 rounds** (or `--max-rounds`). If reached, stop and report what is still open and why it keeps recurring.
-- Same finding REOPENED twice → stop and ask the user; the approach probably needs rethinking.
+- A fingerprint seen for the **2nd time** (reopened or re-raised) → the author fixes the *root cause* across all
+  variants, not the reported example, and states which variants the fix covers.
+- A fingerprint seen for the **3rd time** → STOP. Do not attempt another fix. Report to the user: the finding,
+  the attempts so far, why each failed, and options. The approach needs a human decision.
+- **Blocked remediation** — a hook, permission rule or tool error blocks the same fix step twice → STOP and ask.
+  Never reword, split or obfuscate content to get past a guard (e.g. the secret guard); the block itself is the
+  information. Record it in the ledger as `BLOCKED: <tool> — <message>`.
 - Never exit by lowering severities, deleting ledger rows, or skipping reviewers.
 
 ## Exit report

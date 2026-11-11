@@ -18,6 +18,9 @@ new debug code, new secrets). Report each as a new finding.
 If a fix changes requirement-level behaviour (API contract, business rule, data model), say
 `ESCALATE: TARGETED` so the caller runs a fuller round.
 
+## Ledger matching
+If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.
+
 ## Output — tables only
 ```
 | ID | Now | Reason |

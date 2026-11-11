@@ -114,3 +114,47 @@ def test_allows_normal_commands(command):
 def test_ignores_malformed_input():
     result = subprocess.run([sys.executable, str(HOOK_SCRIPT)], input="not json", capture_output=True, text=True, check=False)
     assert result.returncode == ALLOWED_EXIT_CODE
+
+
+# --- v1.2.0: test files may contain obviously fake credentials (needed to test credential-leak fixes) ---
+
+FAKE_URL_WITH_CREDENTIALS = "jdbc:postgresql://user:" + "pass" + "@host/db"
+
+
+@pytest.mark.parametrize(
+    "test_file_path",
+    [
+        "/repo/server-data/src/test/kotlin/com/acme/dao/DatabaseFactoryTest.kt",
+        "/repo/src/integrationTest/java/com/acme/RepoIT.java",
+        "/repo/tests/test_config.py",
+        "/repo/web/src/config.spec.ts",
+        "/repo/pkg/db/db_test.go",
+        "/repo/src/__tests__/auth.test.js",
+    ],
+)
+def test_allows_heuristic_credentials_in_test_files(test_file_path):
+    content = f'val url = "{FAKE_URL_WITH_CREDENTIALS}"\nval password = "' + "S3cr3t" + 'Pass!"\n'
+    assert run_hook("Write", {"file_path": test_file_path, "content": content}).returncode == ALLOWED_EXIT_CODE
+
+
+def test_still_blocks_real_looking_tokens_in_test_files():
+    result = run_hook("Write", {"file_path": "/repo/src/test/kotlin/AwsTest.kt", "content": f'val key = "{FAKE_AWS_KEY}"'})
+    assert result.returncode == BLOCKED_EXIT_CODE
+
+
+def test_still_blocks_connection_string_credentials_in_production_code():
+    result = run_hook("Write", {"file_path": "/repo/src/main/kotlin/Db.kt", "content": f'val url = "{FAKE_URL_WITH_CREDENTIALS}"'})
+    assert result.returncode == BLOCKED_EXIT_CODE
+
+
+def test_values_marked_fake_are_placeholders_anywhere():
+    content = 'val password = "fake-db-password"\nval token = "test-token-value"'
+    assert run_hook("Write", {"file_path": "/repo/src/main/kotlin/Dev.kt", "content": content}).returncode == ALLOWED_EXIT_CODE
+
+
+def test_block_message_shows_which_line_with_value_redacted():
+    content = "val a = 1\nval b = 2\n" + f'val url = "{FAKE_URL_WITH_CREDENTIALS}"'
+    result = run_hook("Write", {"file_path": "/repo/src/main/kotlin/Db.kt", "content": content})
+    assert "line 3" in result.stderr
+    assert "val url" in result.stderr
+    assert "pass@" not in result.stderr  # the secret itself is never echoed

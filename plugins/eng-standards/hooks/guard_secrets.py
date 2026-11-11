@@ -61,7 +61,8 @@ def is_secret_file(path: str) -> bool:
 
 # --- 2. Content that looks like a real secret ------------------------------------------
 
-SECRET_CONTENT_PATTERNS = {
+# High-confidence formats: real provider token shapes. Blocked everywhere, test files included.
+HIGH_CONFIDENCE_PATTERNS = {
     "private key block": re.compile(r"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----"),
     "AWS access key id": re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
     "GitHub token": re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,})\b"),
@@ -71,6 +72,11 @@ SECRET_CONTENT_PATTERNS = {
     "Anthropic API key": re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{20,}\b"),
     "OpenAI API key": re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_\-]{32,}\b"),
     "JSON Web Token": re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"),
+}
+
+# Heuristics: catch hard-coded credentials in production code. Skipped in test files, where fake credentials
+# are legitimately needed (e.g. to prove a password does not leak from a connection string).
+HEURISTIC_PATTERNS = {
     "hard-coded credential": re.compile(
         r"""(?ix)
         \b(?:password|passwd|pwd|secret|client_secret|api[_-]?key|access[_-]?key|auth[_-]?token|private[_-]?key)\b
@@ -85,25 +91,47 @@ SECRET_CONTENT_PATTERNS = {
 PLACEHOLDER_VALUE = re.compile(
     r"""(?ix)
     ^\$\{.*\}$ | ^\$[A-Z_]+$ | ^<.*>$ | ^%.*%$ | ^\{\{.*\}\}$ |
-    changeme | change_me | placeholder | example | your[_-] | dummy | redacted | xxxx | \*\*\*\*
+    changeme | change_me | placeholder | example | your[_-] | dummy | redacted | xxxx | \*\*\*\* |
+    (?:^|[-_.\s])(?:fake|mock|test|testing|sample)(?:$|[-_.\s\d])
     """
 )
 
+TEST_FILE_PATTERN = re.compile(
+    r"""(?x)
+    (?:^|/)(?:src/(?:test|testFixtures|integrationTest|it)|tests?|__tests__|spec|fixtures|testdata)/ |
+    (?:Test|Tests|IT|Spec)\.(?:kt|kts|java|scala|groovy)$ |
+    [._-](?:test|spec)\.(?:ts|tsx|js|jsx|mjs|cjs|py|rb)$ |
+    (?:^|/)test_[^/]*\.py$ | _test\.(?:go|py)$ | (?:^|/)conftest\.py$
+    """
+)
+MAX_PREVIEW_LENGTH = 80
 
-def find_secrets(text: str) -> list[str]:
+
+def is_test_file(path: str) -> bool:
+    return bool(path) and bool(TEST_FILE_PATTERN.search(path.replace(os.sep, "/")))
+
+
+def redacted_preview(line: str, secret_value: str) -> str:
+    """The offending line with the secret masked, so Claude can locate it without the value being echoed."""
+    preview = line.replace(secret_value, "****").strip()
+    return preview if len(preview) <= MAX_PREVIEW_LENGTH else preview[:MAX_PREVIEW_LENGTH] + "…"
+
+
+def find_secrets(text: str, include_heuristics: bool = True) -> list[str]:
     """Return human-readable findings for every line that looks like it contains a real secret."""
+    patterns = {**HIGH_CONFIDENCE_PATTERNS, **(HEURISTIC_PATTERNS if include_heuristics else {})}
     findings = []
     for line_number, line in enumerate(text.splitlines(), start=1):
         if any(marker in line for marker in ALLOW_MARKERS):
             continue
-        for secret_kind, pattern in SECRET_CONTENT_PATTERNS.items():
+        for secret_kind, pattern in patterns.items():
             match = pattern.search(line)
             if not match:
                 continue
             captured_value = match.group(1) if match.groups() else match.group(0)
             if PLACEHOLDER_VALUE.search(captured_value):
                 continue
-            findings.append(f"line {line_number}: {secret_kind}")
+            findings.append(f"line {line_number}: {secret_kind} → `{redacted_preview(line, captured_value)}`")
             break
     return findings
 
@@ -166,12 +194,14 @@ def main() -> None:
             )
 
     if tool_name in {"Write", "Edit", "MultiEdit"}:
-        findings = find_secrets(text_being_written(tool_name, tool_input))
+        target_path = tool_input.get("file_path", "")
+        findings = find_secrets(text_being_written(tool_name, tool_input), include_heuristics=not is_test_file(target_path))
         if findings:
             block(
                 "content looks like a hard-coded secret (" + "; ".join(findings) + "). "
                 "Load it from configuration / environment / a secret manager instead. "
-                "If this is a deliberate fake value in a test, mark the line with 'pragma: allowlist secret'."
+                "If it is a deliberate fake value, mark THAT line with 'pragma: allowlist secret'. "
+                "Do not retry with reworded content to get past this guard — fix the flagged line or ask the user."
             )
 
     if tool_name == "Bash":
