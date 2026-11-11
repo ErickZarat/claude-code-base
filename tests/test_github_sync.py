@@ -39,11 +39,21 @@ class FakeGitHubClient:
         self.sub_issues_supported = sub_issues_supported
         self.open_pr_titles: list[str] = []
         self.closed_issue_numbers: set[int] = set()
+        self.milestones: dict[int, dict] = {}
 
-    def create_issue(self, title, body, labels):
+    def create_issue(self, title, body, labels, milestone=None):
         number = len(self.issues) + 100
-        self.issues[number] = {"title": title, "body": body, "labels": list(labels)}
+        self.issues[number] = {"title": title, "body": body, "labels": list(labels), "milestone": milestone}
         return github_sync.CreatedIssue(number=number, issue_id=number * 1000)
+
+    def ensure_milestone(self, title, description):
+        for number, milestone in self.milestones.items():
+            if milestone["title"] == title:
+                milestone["description"] = description
+                return number
+        number = len(self.milestones) + 1
+        self.milestones[number] = {"title": title, "description": description}
+        return number
 
     def update_issue_body(self, number, body):
         self.issues[number]["body"] = body
@@ -78,6 +88,12 @@ def change_dir(tmp_path):
 
 
 def sync(change_dir, client, **options):
+    """Parent-issue mode (tracking="epic") — the pre-2.1 behaviour most tests below cover."""
+    options.setdefault("tracking", "epic")
+    return github_sync.sync_change(change_dir, client, repo="acme/shop", **options)
+
+
+def sync_default(change_dir, client, **options):
     return github_sync.sync_change(change_dir, client, repo="acme/shop", **options)
 
 
@@ -272,3 +288,100 @@ def test_gh_cli_client_creates_issue_through_gh_api():
     command = recorded_commands[0]
     assert command[:3] == ["gh", "api", "repos/acme/shop/issues"]
     assert "title=1.1 Do it" in command and "labels[]=task" in command
+
+
+# --- v2.1: milestone + label tracking (default; works on free personal accounts) --------------
+
+def test_default_tracking_uses_a_milestone_and_change_label_instead_of_an_epic_issue(change_dir):
+    client = FakeGitHubClient()
+
+    report = sync_default(change_dir, client)
+
+    assert epic_issues(client) == {}
+    assert len(client.milestones) == 1
+    milestone_number, milestone = next(iter(client.milestones.items()))
+    assert milestone["title"] == "Add refunds (add-refunds)"
+    assert "openspec/changes/add-refunds" in milestone["description"]
+    assert report.milestone_number == milestone_number
+    for issue in task_issues(client).values():
+        assert issue["milestone"] == milestone_number
+        assert "change:add-refunds" in issue["labels"]
+        assert "Milestone: Add refunds (add-refunds)" in issue["body"]
+        assert "Part of #" not in issue["body"]
+    assert "change:add-refunds" in client.labels
+
+
+def test_milestone_sync_is_idempotent_and_recorded_in_mapping(change_dir):
+    client = FakeGitHubClient()
+    sync_default(change_dir, client)
+
+    report = sync_default(change_dir, client)
+
+    assert len(client.milestones) == 1
+    assert report.created_issue_numbers == []
+    mapping = json.loads((change_dir / "github.json").read_text())
+    assert mapping["tracking"] == "milestone"
+    assert mapping["milestone"] == 1
+    assert mapping["epic"] is None
+
+
+def test_tracking_both_creates_milestone_and_parent_issue(change_dir):
+    client = FakeGitHubClient()
+
+    sync_default(change_dir, client, tracking="both")
+
+    assert len(client.milestones) == 1 and len(epic_issues(client)) == 1
+    epic_number = next(iter(epic_issues(client)))
+    for issue in task_issues(client).values():
+        assert issue["milestone"] == 1
+        assert f"Part of #{epic_number}" in issue["body"]
+
+
+def test_legacy_mapping_without_tracking_keeps_parent_issue_mode(change_dir):
+    client = FakeGitHubClient()
+    sync(change_dir, client)  # 2.0-style epic sync
+    mapping_file = change_dir / "github.json"
+    legacy = json.loads(mapping_file.read_text())
+    legacy.pop("tracking", None)
+    mapping_file.write_text(json.dumps(legacy))
+    (change_dir / "tasks.md").write_text((change_dir / "tasks.md").read_text() + "- [ ] 2.3 Email the customer\n")
+
+    sync_default(change_dir, client)
+
+    assert client.milestones == {}
+    new_issue = client.issues[max(client.issues)]
+    assert "Part of #" in new_issue["body"]
+
+
+def test_dry_run_plans_the_milestone(change_dir):
+    report = sync_default(change_dir, FakeGitHubClient(), dry_run=True)
+
+    assert report.planned_titles[0] == "Milestone: Add refunds (add-refunds)"
+    assert len(report.planned_titles) == 4
+
+
+def test_gh_cli_client_reuses_existing_milestone_by_title():
+    recorded_commands = []
+
+    def fake_run(command):
+        recorded_commands.append(command)
+        if command[:3] == ["gh", "api", "repos/acme/shop/milestones?state=all&per_page=100"]:
+            return json.dumps([{"number": 5, "title": "Add refunds (add-refunds)"}])
+        return "{}"
+
+    client = github_sync.GhCliClient("acme/shop", run=fake_run)
+
+    assert client.ensure_milestone("Add refunds (add-refunds)", "desc") == 5
+    assert not any("POST" in command for command in recorded_commands[1:2])
+
+
+def test_gh_cli_client_sets_milestone_on_new_issues():
+    recorded_commands = []
+
+    def fake_run(command):
+        recorded_commands.append(command)
+        return json.dumps({"number": 8, "id": 8008})
+
+    github_sync.GhCliClient("acme/shop", run=fake_run).create_issue("t", "b", ["task"], milestone=5)
+
+    assert "milestone=5" in recorded_commands[0]

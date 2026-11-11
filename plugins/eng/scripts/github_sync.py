@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-Syncs an OpenSpec change to GitHub: one epic issue per change, one task issue per open task in tasks.md,
-linked to the epic as sub-issues. Tags every task in tasks.md with [ISSUE-<n>] and records the mapping in
+Syncs an OpenSpec change to GitHub: one task issue per open task in tasks.md, grouped by
+  - milestone (default): one milestone per change + a `change:<name>` label — works on free personal accounts;
+  - epic: a parent issue labelled `epic` with the tasks as sub-issues;
+  - both. Tags every task in tasks.md with [ISSUE-<n>] and records the mapping in
 <change>/github.json so re-running only creates what is new.
 
 GitHub is reached through the GitHubClient port; GhCliClient is the adapter that uses the `gh` CLI.
 
 Usage:
-  github_sync.py sync   --change openspec/changes/<name> [--group-by task|section] [--dry-run] [--repo owner/name]
+  github_sync.py sync   --change openspec/changes/<name> [--tracking milestone|epic|both] [--group-by task|section]
+                        [--dry-run] [--repo owner/name]
   github_sync.py next   --change openspec/changes/<name>       # prints the next issue number to work on
   github_sync.py branch --issue 43 --title "POST /refunds endpoint"
   github_sync.py title  --issue 43 --type feat --title "POST /refunds endpoint"
@@ -32,6 +35,9 @@ MAX_PROPOSAL_EXCERPT_LINES = 40
 TASK_LINE = re.compile(r"^(?P<indent>\s*)- \[(?P<mark>[ xX])\] (?P<key>\d+(?:\.\d+)+)\s+(?P<rest>.*)$")
 SECTION_LINE = re.compile(r"^## (?P<key>\d+)\.\s+(?P<rest>.*)$")
 EXISTING_TAG = re.compile(rf"\[{TAG_PREFIX}-(\d+)\]\s*")
+
+TRACKING_MODES = ("milestone", "epic", "both")
+CHANGE_LABEL_COLOR = "1d76db"
 
 LABELS = {
     "epic": ("5319e7", "OpenSpec change tracked as an epic"),
@@ -65,6 +71,7 @@ class WorkItem:
 @dataclass
 class SyncReport:
     epic_number: int | None = None
+    milestone_number: int | None = None
     created_issue_numbers: list[int] = field(default_factory=list)
     planned_titles: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -93,7 +100,8 @@ def pr_title(issue_number: int, change_type: str, title: str) -> str:
 # --- Port and adapter --------------------------------------------------------------------------
 
 class GitHubClient(Protocol):
-    def create_issue(self, title: str, body: str, labels: list[str]) -> CreatedIssue: ...
+    def create_issue(self, title: str, body: str, labels: list[str], milestone: int | None = None) -> CreatedIssue: ...
+    def ensure_milestone(self, title: str, description: str) -> int: ...
     def update_issue_body(self, number: int, body: str) -> None: ...
     def add_sub_issue(self, parent_number: int, child_issue_id: int) -> bool: ...
     def ensure_label(self, name: str, color: str, description: str) -> None: ...
@@ -113,12 +121,26 @@ class GhCliClient:
         self.repo = repo
         self.run = run
 
-    def create_issue(self, title: str, body: str, labels: list[str]) -> CreatedIssue:
+    def create_issue(self, title: str, body: str, labels: list[str], milestone: int | None = None) -> CreatedIssue:
         command = ["gh", "api", f"repos/{self.repo}/issues", "-f", f"title={title}", "-f", f"body={body}"]
         for label in labels:
             command += ["-f", f"labels[]={label}"]
+        if milestone is not None:
+            command += ["-F", f"milestone={milestone}"]
         created = json.loads(self.run(command))
         return CreatedIssue(number=created["number"], issue_id=created["id"])
+
+    def ensure_milestone(self, title: str, description: str) -> int:
+        """Reuse the milestone with this exact title (open or closed), otherwise create it."""
+        existing = json.loads(self.run(["gh", "api", f"repos/{self.repo}/milestones?state=all&per_page=100"]))
+        for milestone in existing:
+            if milestone["title"] == title:
+                self.run(["gh", "api", "-X", "PATCH", f"repos/{self.repo}/milestones/{milestone['number']}",
+                          "-f", f"description={description}"])
+                return milestone["number"]
+        created = json.loads(self.run(["gh", "api", f"repos/{self.repo}/milestones", "-f", f"title={title}",
+                                       "-f", f"description={description}"]))
+        return created["number"]
 
     def update_issue_body(self, number: int, body: str) -> None:
         self.run(["gh", "api", "-X", "PATCH", f"repos/{self.repo}/issues/{number}", "-f", f"body={body}"])
@@ -230,16 +252,17 @@ def relative_change_path(change_dir: Path) -> str:
     return "/".join(parts[parts.index("openspec"):]) if "openspec" in parts else str(change_dir)
 
 
-def task_issue_body(item: WorkItem, epic_number: int, change_path: str) -> str:
+def task_issue_body(item: WorkItem, parent_lines: list[str], change_path: str) -> str:
     subtasks = "\n".join(item.subtasks)
     return (
-        f"Part of #{epic_number}\n\n"
+        "\n".join(parent_lines) + "\n\n"
         f"OpenSpec change: `{change_path}` — task `{item.key}`. Read `proposal.md`, `design.md` (if any) and the "
         f"delta specs there for requirements and scenarios.\n\n"
         + (f"## Subtasks\n{subtasks}\n\n" if subtasks else "")
         + "## Working on this ticket\n"
         f"- Branch: `issue-<n>-<slug>` · commits and PR title start with `[{TAG_PREFIX}-<n>]` · PR body: `Closes #<n>`\n"
-        "- TDD, then `/eng:dod`, then `/eng:review` on the PR (or run `/eng:task <n>` to do it all)."
+        "- PR body: acceptance criteria, Definition of Done and pending decisions as checklists — it can only be marked\n"
+        "  ready when all are checked (CI enforces). Run `/eng:task <n>` to do it all."
     )
 
 
@@ -255,8 +278,22 @@ def epic_body(change_dir: Path, items: list[WorkItem], change_path: str) -> str:
     )
 
 
+def milestone_description(change_dir: Path, change_path: str) -> str:
+    first_paragraph = next((block.strip() for block in proposal_excerpt(change_dir).split("\n\n")[1:] if block.strip()), "")
+    return f"OpenSpec change {change_path}. {first_paragraph}".strip()[:1000]
+
+
+def resolve_tracking(requested: str | None, mapping: dict) -> str:
+    """Explicit choice wins; otherwise keep what the change was synced with (2.0 mappings had only an epic)."""
+    if requested:
+        return requested
+    if mapping.get("tracking"):
+        return mapping["tracking"]
+    return "epic" if mapping.get("epic") else "milestone"
+
+
 def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str = "task",
-                dry_run: bool = False) -> SyncReport:
+                dry_run: bool = False, tracking: str | None = None) -> SyncReport:
     tasks_file = change_dir / "tasks.md"
     if not tasks_file.is_file():
         raise SyncError(f"{tasks_file} not found — create the OpenSpec change (with tasks.md) first")
@@ -264,40 +301,58 @@ def sync_change(change_dir: Path, client: GitHubClient, repo: str, group_by: str
     lines = tasks_file.read_text().splitlines()
     items = parse_work_items(lines, group_by)
     mapping = load_mapping(change_dir)
+    tracking = resolve_tracking(tracking, mapping)
+    if tracking not in TRACKING_MODES:
+        raise SyncError(f"unknown tracking mode {tracking!r}; use one of {', '.join(TRACKING_MODES)}")
+    use_milestone, use_epic = tracking in ("milestone", "both"), tracking in ("epic", "both")
     for item in items:
         item.issue_number = item.issue_number or mapping["items"].get(item.key)
     change_path = relative_change_path(change_dir)
-    report = SyncReport(epic_number=mapping.get("epic"))
-    epic_title = f"[EPIC] {proposal_title(change_dir)} ({change_dir.name})"
+    change_title = f"{proposal_title(change_dir)} ({change_dir.name})"
+    change_label = f"change:{change_dir.name}"
+    report = SyncReport(epic_number=mapping.get("epic"), milestone_number=mapping.get("milestone"))
+    epic_title = f"[EPIC] {change_title}"
 
     items_to_create = [item for item in items if not item.done and item.issue_number is None]
     if dry_run:
-        report.planned_titles = ([] if report.epic_number else [epic_title]) + \
-            [item_label(item) for item in items_to_create]
+        report.planned_titles = (
+            ([f"Milestone: {change_title}"] if use_milestone and not report.milestone_number else [])
+            + ([epic_title] if use_epic and not report.epic_number else [])
+            + [item_label(item) for item in items_to_create]
+        )
         return report
 
     for label_name, (color, description) in LABELS.items():
         client.ensure_label(label_name, color, description)
+    client.ensure_label(change_label, CHANGE_LABEL_COLOR, f"OpenSpec change {change_dir.name}")
     if not client.ensure_autolink(f"{TAG_PREFIX}-", f"https://github.com/{repo}/issues/<num>"):
         report.warnings.append(f"Could not add the {TAG_PREFIX}- autolink (needs repo admin); tags won't be clickable.")
 
-    if report.epic_number is None:
-        report.epic_number = client.create_issue(epic_title, "Syncing tasks…", ["epic"]).number
+    if use_milestone:
+        report.milestone_number = client.ensure_milestone(change_title, milestone_description(change_dir, change_path))
+    if use_epic and report.epic_number is None:
+        report.epic_number = client.create_issue(epic_title, "Syncing tasks…", ["epic", change_label],
+                                                 report.milestone_number).number
 
+    parent_lines = ([f"Part of #{report.epic_number}"] if use_epic else []) + \
+                   ([f"Milestone: {change_title}"] if use_milestone else [])
     for item in items_to_create:
-        created = client.create_issue(item_label(item), task_issue_body(item, report.epic_number, change_path), ["task"])
+        created = client.create_issue(item_label(item), task_issue_body(item, parent_lines, change_path),
+                                      ["task", change_label], report.milestone_number if use_milestone else None)
         item.issue_number = created.number
         report.created_issue_numbers.append(created.number)
-        if not client.add_sub_issue(report.epic_number, created.issue_id):
+        if use_epic and not client.add_sub_issue(report.epic_number, created.issue_id):
             report.warnings.append(f"#{created.number}: sub-issue link failed; it is still listed in the epic checklist.")
 
-    client.update_issue_body(report.epic_number, epic_body(change_dir, items, change_path))
+    if use_epic:
+        client.update_issue_body(report.epic_number, epic_body(change_dir, items, change_path))
 
     for item in items:
         if item.issue_number:
             lines[item.line_index] = tag_line(lines[item.line_index], item.key, item.issue_number)
     tasks_file.write_text("\n".join(lines) + "\n")
-    mapping = {"repo": repo, "epic": report.epic_number, "group_by": group_by,
+    mapping = {"repo": repo, "tracking": tracking, "milestone": report.milestone_number if use_milestone else None,
+               "epic": report.epic_number if use_epic else None, "group_by": group_by,
                "items": {item.key: item.issue_number for item in items if item.issue_number}}
     (change_dir / MAPPING_FILE_NAME).write_text(json.dumps(mapping, indent=2) + "\n")
     return report
@@ -329,6 +384,7 @@ def main() -> int:
     sync_parser = commands.add_parser("sync")
     sync_parser.add_argument("--change", required=True)
     sync_parser.add_argument("--group-by", choices=["task", "section"], default="task")
+    sync_parser.add_argument("--tracking", choices=TRACKING_MODES, help="default: milestone (or what the change used before)")
     sync_parser.add_argument("--dry-run", action="store_true")
     sync_parser.add_argument("--repo")
     next_parser = commands.add_parser("next")
@@ -358,7 +414,7 @@ def main() -> int:
             number = next_task(change_dir, client)
             print(number if number else "none")
             return 0
-        report = sync_change(change_dir, client, repo, arguments.group_by, arguments.dry_run)
+        report = sync_change(change_dir, client, repo, arguments.group_by, arguments.dry_run, arguments.tracking)
     except SyncError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -367,7 +423,10 @@ def main() -> int:
         print("Would create:\n" + "\n".join(f"  {title}" for title in report.planned_titles) if report.planned_titles
               else "Nothing to create.")
         return 0
-    print(f"Epic: #{report.epic_number}  (https://github.com/{repo}/issues/{report.epic_number})")
+    if report.milestone_number:
+        print(f"Milestone: https://github.com/{repo}/milestone/{report.milestone_number}")
+    if report.epic_number:
+        print(f"Epic issue: https://github.com/{repo}/issues/{report.epic_number}")
     print("Created: " + (", ".join(f"#{n}" for n in report.created_issue_numbers) or "nothing new"))
     for warning in report.warnings:
         print(f"warning: {warning}")
