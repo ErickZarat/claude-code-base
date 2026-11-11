@@ -1,0 +1,25 @@
+# Installed by eng@claude-code-base. Blocks ready-for-review PRs that don't link their issue or still have
+# unchecked acceptance criteria, Definition-of-Done items or pending decisions. Draft PRs only get a report.
+name: PR checklist
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+
+jobs:
+  checklist:
+    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Acceptance criteria, Definition of Done and decisions are all checked
+        env:  # PR data only via env — never interpolated into the script
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+        run: python3 .github/scripts/eng_pr_checklist.py

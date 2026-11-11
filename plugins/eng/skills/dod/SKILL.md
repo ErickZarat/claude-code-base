@@ -36,3 +36,5 @@ Security: <scan results or "tools not installed — manual review only">
 Follow-ups / risks: <or "none">
 ```
 If anything failed or could not be verified, say so plainly at the top instead of reporting success.
+When a PR exists or is about to be opened, map these results onto its *Definition of Done* checklist: check only the
+items you just verified; leave the others unchecked.

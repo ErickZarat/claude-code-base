@@ -53,6 +53,9 @@ def test_fresh_install_creates_rules_seeds_manifest_and_gitignore(plugin_copy, p
     assert "node_modules" in gitignore and ".env" in gitignore and "*.eng-new" in gitignore
     assert ".reviews/*/packet.md" in gitignore and "openspec/changes/*/reviews/*/packet.md" in gitignore
     assert (project / ".github/workflows/eng-pr-title.yml").is_file()
+    assert (project / ".github/workflows/eng-pr-checklist.yml").is_file()
+    assert (project / ".github/scripts/eng_pr_checklist.py").is_file()
+    assert (project / ".github/pull_request_template.md").is_file()
 
 
 def test_reinstall_is_idempotent(plugin_copy, project):
@@ -155,3 +158,13 @@ def test_migration_respects_dry_run(plugin_copy, project):
     run_installer(plugin_copy, "--dry-run", str(project))
 
     assert settings_file.read_text() == original
+
+
+def test_existing_pr_template_is_project_owned(plugin_copy, project):
+    template = project / ".github/pull_request_template.md"
+    template.parent.mkdir(parents=True)
+    template.write_text("our own template\n")
+
+    run_installer(plugin_copy, str(project))
+
+    assert template.read_text() == "our own template\n"

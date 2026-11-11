@@ -23,8 +23,9 @@ are launched; deterministic tools run first; output is tables only.
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_packet.py" --base <base> --out <dir>/packet.md   [--since <sha> for re-review rounds]
 ```
 If `${CLAUDE_PLUGIN_ROOT}` is not expanded: `find ~/.claude/plugins -path '*claude-code-base/eng/*/scripts/review_packet.py' | head -1`.
-Read only its **Triage** section yourself; reviewers read the whole packet. For a PR, append the PR body to the packet
-under `## PR description` if the packet lists no requirement sources.
+Read only its **Triage** section yourself; reviewers read the whole packet. For a PR, always append the PR body to the packet
+under `## PR description` — its *Acceptance criteria* checklist is a requirement source, and `requirements-verifier`
+must confirm each checked item really has a passing test (a checked box without evidence is a 🔴 BLOCKER).
 
 ## 3. Deterministic gates (cheap — before any reviewer)
 Build, tests, lint (commands from CLAUDE.md); `gitleaks detect --no-banner --redact` and `semgrep scan --config auto --error`

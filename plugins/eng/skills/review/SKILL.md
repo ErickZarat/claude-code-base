@@ -88,6 +88,8 @@ into the conversation; reference the ledger. If the session is long before start
 - [ ] Latest `requirements-verifier` result (FULL/TARGETED round, or quick-mode check): every requirement ✅ Done — no Missing, Partial, Wrong or Untested, and no later fix escalated.
 - [ ] No OPEN or REOPENED BLOCKER, MAJOR or QUESTION. Every MINOR is VERIFIED or DECLINED with reason.
 - [ ] Every FIXED item from the last remediation has been VERIFIED by a reviewer (the author cannot self-verify).
+- [ ] When reviewing a PR: its body links the issue (`Closes #n`) and every *Acceptance criteria*, *Definition of Done*
+      and *Pending decisions* item is checked with evidence. Unchecked items are reported as open, not as passed.
 
 ## Stop conditions
 - Default max **3 rounds** (or `--max-rounds`). If reached, stop and report what is still open and why it keeps recurring.
