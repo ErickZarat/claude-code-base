@@ -26,8 +26,12 @@ Add a new path-scoped rule file if the project uses a language/framework not cov
 Ask the user: "Use OpenSpec for this project?"
 - Yes and not installed: tell the user to run `npm install -g @fission-ai/openspec@latest` then `openspec init --tools claude`
   (do not install global packages yourself without approval).
-- Yes and installed: run `openspec init --tools claude` if `openspec/` does not exist; then fill `openspec/project.md`
-  (or the project context file OpenSpec generated) with the same stack facts as CLAUDE.md.
+- Yes and installed: run `openspec init --tools claude` if `openspec/` does not exist; then put the same stack facts as
+  CLAUDE.md in the `context:` of `openspec/config.yaml`.
+- Merge the eng rules into `openspec/config.yaml` under `rules:`: take every line from
+  `${CLAUDE_PLUGIN_ROOT}/openspec/config-rules.yaml`, replace existing lines starting with `[eng]`, keep the project's
+  own rules. Show the diff before writing. These make OpenSpec write measurable scenarios, NFR and Contracts sections,
+  and annotated, PR-sized tasks.
 - No: the `plan-change` skill is the planning workflow.
 
 ## 5. Safety net

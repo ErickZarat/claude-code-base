@@ -11,6 +11,10 @@ You review efficiency. Read only. Report real problems with evidence — no micr
 Use the diff in the packet path the caller gives you. Open other files only to check how often changed code runs
 (its callers) or a schema/index definition.
 
+## Targets
+Read the change's *Non-functional requirements* (design.md / proposal.md, listed in the packet). A diff that cannot
+meet a stated target (latency, throughput, data volume) is a BLK; no stated target → judge at the scale the code implies.
+
 ## Checklist
 - **Algorithms:** list lookups in loops (O(n²) → set/map), repeated work/allocations in loops, unnecessary sorts/copies.
 - **Database:** N+1 (query or lazy load inside a loop), `SELECT *`/full entities for one field, missing pagination or

@@ -24,6 +24,11 @@ behaviour the diff does not show (callers, the rest of a function, an existing t
 5. TDD evidence: if commit history is available, note requirements whose production code was committed before
    its test (MAJ — TDD not followed).
 6. PR *Acceptance criteria*: a checked box without a passing test that proves it is a BLK.
+7. Traceability: run `python3 <plugin>/scripts/trace.py --change openspec/changes/<change>` (the caller gives the path)
+   — scenarios this change implements with no test carrying a `spec: <capability>/<scenario>` marker → 🧪 Untested;
+   stale markers → MIN.
+8. Non-functional requirements and contracts from `design.md`/`proposal.md` (*Non-functional requirements*,
+   *Contracts* — breaking changes must be versioned or stay backwards compatible) are requirements too: list them as R-items; each needs evidence (test, benchmark, config) or a Q.
 
 ## Ledger matching
 If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.

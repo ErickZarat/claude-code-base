@@ -6,7 +6,8 @@
 - If requirements, inputs, edge cases or acceptance criteria are unclear, ASK. Do not invent behaviour.
 - Search for existing code that already solves part of the problem (see `reuse-first` skill).
 - For anything bigger than a single-file fix, produce a plan first (OpenSpec change or `plan-change` skill)
-  and wait for approval.
+  and wait for approval. Bugs and small fixes from a ticket use the lite path of `/eng:task` (no proposal needed).
+- A choice between real alternatives, or an architecture change, gets a decision record (`decision` skill).
 
 ## While writing code
 - Follow TDD (`tdd` skill): a failing test exists before any production logic is written.

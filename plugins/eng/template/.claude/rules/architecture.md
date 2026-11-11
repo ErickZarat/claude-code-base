@@ -23,6 +23,12 @@
 - Controllers/handlers are thin: validate, map, call a use case, map the result. No business rules there.
 - DTOs at the edges, domain models inside. Map explicitly between them.
 
+## API contracts
+- .proto, OpenAPI, GraphQL and event schemas are contracts: changes stay backwards compatible (add optional fields,
+  never renumber/rename/remove; new endpoint or version for breaking changes).
+- A breaking change needs a decision record and `Breaking-change: approved — <reason>` in the PR body
+  (the `API contracts` CI check enforces it for .proto and OpenAPI).
+
 ## Configuration
 - All environment-specific values come from configuration (env vars / config files / secret manager), never hard-coded.
 - Configuration is validated at startup; the app fails fast on missing or invalid config.

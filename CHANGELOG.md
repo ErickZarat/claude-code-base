@@ -3,6 +3,29 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.8.0] — 2026-11-11
+### Added — spec-driven extras on top of OpenSpec (lightweight: scripts and CI, AI only at checkpoints)
+1. **Spec lint** (`spec_lint.py`, `/eng:spec`): structure errors, vague wording, missing error cases, uncovered
+   requirements, missing NFR section, task dependency cycles, oversized tasks; ≤10 ambiguity questions;
+   `/eng:epic` stops on ERRORs.
+2. **API contract check**: template CI `eng-contracts.yml` + `eng_contract_check.py` — `buf breaking` for .proto,
+   `oasdiff breaking` for OpenAPI (Docker images), GraphQL/Avro flagged; override with
+   `Breaking-change: approved — <reason>` in the PR body. Review packet lists *Contract changes*; architecture rule.
+3. **Non-functional requirements**: OpenSpec rule for a *Non-functional requirements* section; lint warns; performance
+   and security reviewers verify against it.
+4. **Scenario ↔ test traceability** (`trace.py`): scenario IDs, `spec:` markers in tests, untested/stale report;
+   `/eng:spec --before-archive` gate; reviewers report untested scenarios; tdd/testing rule updated.
+5. **Decision records** (`decisions.py`, `decision` skill): `docs/decisions/NNNN-title.md` with supersede chains.
+6. **Retro** (`findings_report.py`, `/eng:retro`): recurring review problem classes → proposed rules in
+   `.claude/rules/learned.md`.
+7. **Lite path** in `/eng:task` for tickets outside an OpenSpec change; `/eng:task new "title" --bug|--feature`.
+8. **Task dependencies and size**: `(after: 1.1; size: S)` → "Depends on #n", `size:` labels; `next` waits for
+   dependencies and lists blocked tickets.
+- `openspec/config-rules.yaml`: `[eng]` rules merged into projects' `openspec/config.yaml` by bootstrap/setup.
+- Coverage test: reviewers must check NFRs, contract compatibility and traceability.
+
+Run `/eng:setup` in each project (new CI check, rules, OpenSpec rules merge).
+
 ## [2.7.0] — 2026-11-11
 ### Changed — ticket tags follow the issue type
 - Tag format `[<KIND>-<n>]`. KIND = the issue's native type (organization repos: Bug → BUG, Feature → FEATURE,

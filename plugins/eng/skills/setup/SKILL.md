@@ -15,4 +15,6 @@ argument-hint: "[--dry-run] [--user]"
 4. If the output lists **locally modified** files, for each one show the diff between `<file>` and `<file>.eng-new`,
    propose a merge, apply it once the user agrees, then delete the `.eng-new` file.
 5. If `CLAUDE.md` was just created (first install), follow `${CLAUDE_PLUGIN_ROOT}/skills/bootstrap/SKILL.md` to fill it in.
-6. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.
+6. If `openspec/config.yaml` exists, compare its `[eng]` rules with `${CLAUDE_PLUGIN_ROOT}/openspec/config-rules.yaml`;
+   if they differ or are missing, show the diff and offer to merge (same procedure as the bootstrap skill).
+7. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.

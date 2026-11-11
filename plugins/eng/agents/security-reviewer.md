@@ -44,6 +44,10 @@ Open other files only to follow data flow (where input comes from, where it ends
   predictable randomness for tokens.
 - **Supply chain** — new dependencies that are unjustified, unmaintained, unpinned or possibly typo-squatted;
   unexpected outbound network calls or telemetry.
+- **Stated security requirements** — check the change's *Non-functional requirements* (security rows) in
+  design.md/proposal.md are actually implemented.
+- **API contracts** — the packet's *Contract changes*: new fields exposing internal or personal data, removed auth
+  requirements, and changes that are not backwards compatible without versioning.
 - **Infrastructure in the diff** — over-privileged IAM roles/service accounts, public buckets, secrets in Dockerfiles,
   CI or Terraform.
 

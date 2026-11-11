@@ -35,7 +35,8 @@ if installed. A failing gate is a 🔴 BLOCKER. Pass a one-line result per gate 
 Depth = `--depth` if given, else the packet's suggested depth (`standard`, or the project's
 `Minimum review depth:` from CLAUDE.md when deeper). `quick` is used only when the user explicitly asks for it.
 Launch the chosen reviewers in ONE message (parallel),
-each with: packet path, gate results, ledger path (if any), scope, and **which other reviewers run this round**
+each with: packet path, gate results, ledger path (if any), scope, the OpenSpec change path (if any) and the plugin's
+scripts folder (`${CLAUDE_PLUGIN_ROOT}/scripts`, for `trace.py`), and **which other reviewers run this round**
 (so `code-reviewer` covers requirements and basic efficiency when `requirements-verifier` / `performance-reviewer`
 are not running). With a ledger, tell reviewers: match every finding
 against ALL ledger rows by fingerprint (component · problem class) and reuse the ID — variants of a known problem are

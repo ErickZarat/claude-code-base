@@ -21,6 +21,8 @@ Paste the real result (pass/fail counts or the error), not "should work".
 - [ ] Errors handled with context; inputs validated at boundaries; no swallowed exceptions.
 - [ ] TDD was followed: every new behaviour has a test that was seen failing before the code existed.
 - [ ] Tests cover the new behaviour and its edge cases; no tests were skipped, deleted or weakened.
+- [ ] Tests for OpenSpec scenarios carry `spec: <capability>/<scenario>` markers (`trace.py --change <change>` shows them).
+- [ ] Significant design choices recorded in `docs/decisions/` (`decision` skill); API contract changes backwards compatible or versioned.
 - [ ] Every requirement / OpenSpec scenario / plan step is implemented (for features, run the `requirements-verifier` agent).
 - [ ] Docs/README/`.env.example`/OpenSpec specs updated if behaviour or configuration changed.
 

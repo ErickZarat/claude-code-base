@@ -54,6 +54,9 @@ The caller also tells you which other reviewers are running this round.
 7. **Efficiency — only when performance-reviewer is not running.** Obvious problems only: N+1 queries or lazy loads
    in loops, remote calls in loops, unbounded queries without pagination, network calls without a timeout,
    blocking calls on coroutine/event-loop threads. Anything needing deeper analysis → a Q suggesting `--depth standard`.
+8. **Spec extras — only when requirements-verifier is not running** (quick depth): run `trace.py --change <change>`
+   (path from the caller) and report untested scenarios; check the change's *Non-functional requirements* and
+   *Contracts* sections — contract changes listed in the packet must stay backwards compatible or be versioned.
 
 ## Ledger matching
 If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.
@@ -63,7 +66,7 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 | Sev | Area | Location | Finding | Fix |
 Sev codes: BLK · MAJ · MIN · S · Q — the caller turns them into IDs `R<round>-<code>-<n>`.
 Exploitable security issue or leaked secret = BLK. Untested new behaviour = BLK.
-Checked: <the areas 0–7 you covered this round, e.g. "0,1,2,3,4,5,6,7">
+Checked: <the areas 0–8 you covered this round, e.g. "0,1,2,3,4,5,6,7,8">
 ```
 Report every finding — never drop one to keep the list short. One line each; the same problem in several places is
 one row with all locations. Most severe first. No praise, no summary paragraph.

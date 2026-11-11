@@ -11,6 +11,8 @@ including edge cases and failure paths. Each becomes one cycle. Order them simpl
 
 ## 1. RED — one failing test
 - Write ONE test for the next behaviour, using the public interface (or the port it should go behind).
+  If the behaviour comes from an OpenSpec scenario, add a marker comment in the test: `spec: <capability>/<scenario-slug>`
+  (IDs: `trace.py --list`) — that is how traceability and `/eng:spec --before-archive` find it.
 - Production types it needs may be created as empty stubs so it compiles; no logic yet.
 - Run only that test. Paste the result. It must fail on the assertion, for the reason you expect.
   - Passes already? The behaviour exists or the test is wrong — investigate before continuing.

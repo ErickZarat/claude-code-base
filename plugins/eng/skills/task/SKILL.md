@@ -2,7 +2,7 @@
 name: task
 description: Work one GitHub ticket end to end — branch, TDD, DoD, PR linked to the issue with checklists, review cycle. One PR per task.
 disable-model-invocation: true
-argument-hint: "[issue# | next] [--depth quick|standard|thorough] [--stack] [--auto]"
+argument-hint: "[issue# | next | new \"title\" --bug|--feature] [--depth standard|thorough|quick] [--stack] [--auto]"
 ---
 
 # Work one ticket → one PR
@@ -19,11 +19,26 @@ Scope is **this ticket only**. Anything else you discover goes in the PR's *Pend
 
 ## 2. Pick the ticket
 - Number given → use it. `next` → `SYNC next --change openspec/changes/<change>` (the active change).
-  `none` → every task is done or already has a PR: report the milestone status and suggest `/opsx:archive` when all are merged.
+  It skips tickets whose dependencies (`after:` in tasks.md) are not merged yet and prints `blocked: #x waits for #y`.
+  `none` → nothing is ready: show what is blocked or in review; when everything is merged suggest
+  `/eng:spec --before-archive`, then `/opsx:archive`.
+- `new "<title>" --bug|--feature` → create the ticket first: `gh issue create --title "<title>" --label bug|feature
+  --body "<what happens, expected behaviour, steps to reproduce>"` (ask for anything missing), then continue with it.
 - Read only what this task needs: `gh issue view <n> --json title,body,milestone`, its line in `tasks.md`, and from the
   change folder `proposal.md`, `design.md` and the delta-spec requirements/scenarios this task implements.
 - **Write down the acceptance criteria now**: one line per requirement/scenario (WHEN/THEN) this task must satisfy,
-  plus the task line itself. These drive the tests and become the PR checklist.
+  plus the task line itself, with its scenario ID (`python3 <scripts>/trace.py --change openspec/changes/<change> --list`).
+  These drive the tests and become the PR checklist.
+
+### Lite path — the ticket belongs to no OpenSpec change (bugs, small fixes)
+No `github.json` lists this issue → no proposal needed:
+- Acceptance criteria come from the issue body (`## Acceptance criteria` or the expected behaviour); confirm 2–5
+  criteria with the user if the issue is vague.
+- **Bug:** first a failing test that reproduces it (`tdd`), then the fix.
+- **Specs:** search `openspec/specs/` for the behaviour. Fix restores specified behaviour → no spec change; mark the
+  regression test `spec: <capability>/<scenario>`. Fix *changes* specified behaviour → stop and ask: open an OpenSpec
+  change (`/opsx:propose`) or let the user approve updating the spec in this PR.
+- Milestone/epic lines are omitted from the PR body; everything else in this skill applies.
 
 ## 3. Branch
 - `git fetch origin` then `git switch -c "$(SYNC branch --issue <n> --title "<ticket title>")" origin/<default-branch>` (e.g. `bug-10-null-total`).
@@ -31,8 +46,11 @@ Scope is **this ticket only**. Anything else you discover goes in the PR's *Pend
   or stack (`--stack`): branch from that PR's branch, open this PR against it, write `Depends on #<pr>` in the body.
 
 ## 4. Implement
-`tdd` for every acceptance criterion (failing test shown first), `reuse-first` before new code,
-`interface-first-design` for anything external. Then mark the task `[x]` in `tasks.md` on this branch.
+`tdd` for every acceptance criterion (failing test shown first) — each test carries a marker comment with the
+scenario it proves (`// spec: billing/refund-above-total-is-rejected`); `reuse-first` before new code,
+`interface-first-design` for anything external; the `decision` skill when you choose between real alternatives;
+contract changes (.proto/OpenAPI/events) stay backwards compatible unless the spec says otherwise.
+Then mark the task `[x]` in `tasks.md` on this branch.
 A question only a person can answer (product rule, naming, scope) → don't guess: record it as a pending decision.
 
 ## 5. Definition of done

@@ -49,6 +49,10 @@ REQUIRED_TOPICS = {
     "comments explain why": ["why"],
     "stale comments": ["stale", "inaccurate comment"],
     "leftover debug code": ["debug code"],
+    # spec-driven extras (v2.8)
+    "non-functional requirements": ["non-functional requirements"],
+    "api contract compatibility": ["backwards compatib"],
+    "scenario traceability": ["trace.py"],
     # efficiency (must be covered even when performance-reviewer is skipped)
     "n+1 / query patterns": ["n+1"],
     "remote calls in loops": ["remote calls in loops", "calls in loops"],

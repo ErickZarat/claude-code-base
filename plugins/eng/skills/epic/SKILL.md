@@ -21,9 +21,12 @@ A change keeps the mode it was first synced with unless `--tracking` is given.
 1. **Preconditions.** `gh auth status` works and the repo has a GitHub remote. Otherwise stop and say what is missing.
 2. **Pick the change.** The argument, or the only folder in `openspec/changes/` other than `archive/`. Several → ask.
    If `openspec` is installed, run `openspec validate <change>` and stop on errors.
-3. **Confirm the tasks are approved** — tickets are hard to undo. If the user has not approved `tasks.md` in this
+3. **Spec lint first:** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/spec_lint.py" --change openspec/changes/<change>`.
+   Any ERROR → stop and suggest `/eng:spec` to fix the change. WARNs → show them and ask whether to continue.
+   **Confirm the tasks are approved** — tickets are hard to undo. If the user has not approved `tasks.md` in this
    conversation, show it briefly and ask.
-4. **Granularity.** Default: one ticket (and one PR) per task. If most tasks are tiny (one-line chores such as
+4. **Granularity.** Default: one ticket (and one PR) per task. Task annotations `(after: 1.1; size: S)` become
+   "Depends on #n" in the ticket and a `size:S` label; `/eng:task next` respects the order. If most tasks are tiny (one-line chores such as
    "add dependency"), or there are more than ~12, suggest `--group-by section` (one ticket per `## N.` section). Ask once.
 5. **Preview:** `SYNC sync --change openspec/changes/<change> [--tracking …] [--group-by section] --dry-run`. Show the list.
 6. **Create:** same command without `--dry-run`. Report the milestone / issue links, created ticket numbers and every

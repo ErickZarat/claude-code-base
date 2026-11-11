@@ -8,6 +8,7 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 - [Commands at a glance](#commands-at-a-glance)
 - [Daily workflow](#daily-workflow)
 - [Ticket tracking](#ticket-tracking)
+- [Spec-driven extras (on top of OpenSpec)](#spec-driven-extras-on-top-of-openspec)
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
 - [Reviewer agents](#reviewer-agents)
@@ -39,14 +40,17 @@ Installs rules, CLAUDE.md, settings, pre-commit and the PR-title check, then fil
 
 **3. Every feature:**
 ```text
-/opsx:propose <what you want>   # plan → you approve proposal, specs and tasks
+/opsx:propose <what you want>   # plan → proposal, specs, design, tasks
+/eng:spec                       # spec lint + questions → you approve the change
 /eng:epic                       # GitHub milestone + one ticket per task, tagged [TASK-n]
 /eng:task next                  # ticket → branch → TDD → DoD → PR "[TASK-n] …" with checklists → review → ready
   … you merge the PR …
 /clear                          # fresh context for the next ticket
 /eng:task next                  # repeat until the epic is done
-/opsx:archive                   # when every ticket is merged
+/eng:spec --before-archive      # every scenario has a test, every ticket closed
+/opsx:archive                   # archive the change
 ```
+Bugs and small fixes skip OpenSpec: `/eng:task new "Null total crashes refunds" --bug` (or `/eng:task <issue#>`).
 That's it. Everything below is reference.
 
 ---
@@ -57,8 +61,10 @@ That's it. Everything below is reference.
 |---|---|
 | `/eng:setup` | Install / update the project files (rules, CLAUDE.md, settings, pre-commit, PR-title check) |
 | `/eng:bootstrap` | Fill CLAUDE.md for this repo, prune unused language rules, optional OpenSpec |
+| `/eng:spec [change] [--before-archive]` | Spec lint + ambiguity questions before coding; traceability gate before archive |
+| `/eng:retro` | Recurring review findings → proposed one-line rules in `.claude/rules/learned.md` |
 | `/eng:epic [change]` | OpenSpec change → GitHub milestone (or parent issue) + one ticket per task |
-| `/eng:task <n\|next>` | One ticket end to end, ending in a reviewed, ready-for-review PR |
+| `/eng:task <n\|next\|new "title" --bug>` | One ticket end to end, ending in a reviewed, ready-for-review PR |
 | `/eng:dod` | Definition-of-done check (build, tests, lint, diff, security) |
 | `/eng:review [PR#]` | Review → fix → re-review cycle until merge-ready |
 | `/eng:review-once [PR#]` | One read-only review round (e.g. someone else's PR) |
@@ -161,6 +167,28 @@ mapping; re-running `/eng:epic` only creates tickets for new tasks.
 
 ---
 
+## Spec-driven extras (on top of OpenSpec)
+
+OpenSpec stays the planning tool (lightweight, no phase gates). These fill its gaps with scripts and CI checks —
+AI tokens are only spent at the existing checkpoints.
+
+| Gap in OpenSpec | What closes it | How |
+|---|---|---|
+| No check that a spec is ready to build | **Spec lint** — `/eng:spec` (`spec_lint.py`) | ERROR: requirement without scenarios, scenario without WHEN/THEN, no specs/tasks, task dependency cycles. WARN: vague wording ("fast", "properly", "etc."), no error/edge-case scenario, requirement no task covers, missing *Non-functional requirements*, L-sized tasks. Plus up to 10 ambiguity questions. `/eng:epic` refuses to create tickets while there are ERRORs |
+| Specs describe behaviour, not wire contracts | **API contract check** — CI `API contracts` (`eng_contract_check.py`) | `.proto` via `buf breaking` (needs `buf.yaml`), OpenAPI via `oasdiff breaking`, both from Docker images; GraphQL/Avro flagged for review. Breaking change fails unless the PR body says `Breaking-change: approved — <reason>`. The review packet lists *Contract changes* |
+| Scenarios are mostly functional | **Non-functional requirements** | OpenSpec rule: design.md gets *Non-functional requirements* (latency, volume, availability, security, observability, cost — relevant rows only). Lint warns when missing; performance/security reviewers verify against it |
+| Scenarios aren't linked to tests | **Traceability** (`trace.py`) | Scenario ID `<capability>/<scenario-slug>`; tests carry `// spec: billing/refund-above-total-is-rejected`. `trace.py --list` gives IDs; reviews report untested scenarios; `/eng:spec --before-archive` blocks archiving until every scenario has a test |
+| `design.md` is archived with the change | **Decision records** (`decision` skill, `decisions.py`) | `docs/decisions/NNNN-title.md`: context, options, decision, consequences; supersede chains; linked from design.md |
+| No learning across changes | **Retro** — `/eng:retro` (`findings_report.py`) | Groups findings from all review ledgers by problem class; proposes one-line rules for recurring ones into `.claude/rules/learned.md` (you approve each) |
+| Every change needs a proposal | **Lite path** in `/eng:task` | Tickets outside an OpenSpec change: criteria from the issue, bug → failing test first; if the fix *changes* specified behaviour it stops and asks for a change/spec update |
+| `tasks.md` is a flat list | **Dependencies and size** | `- [ ] 1.2 POST /refunds (after: 1.1; size: S)` → "Depends on #n" in the ticket, `size:S` label; `/eng:task next` waits for dependencies and shows what is blocked |
+
+**OpenSpec rules.** `/eng:bootstrap` (and `/eng:setup` on updates) merges `[eng]` rules into `openspec/config.yaml`
+so OpenSpec itself writes measurable scenarios, NFR and Contracts sections, and annotated PR-sized tasks. Your own
+rules are kept; only `[eng]` lines are replaced.
+
+---
+
 ## Command reference
 
 All commands are plugin skills, invoked as `/eng:<name>`. Arguments are read by Claude, so plain language
@@ -182,6 +210,21 @@ Install or update the per-project files.
 Adapt the setup to the repo (runs automatically after the first `setup`). Detects the stack, fills every `TODO` in
 CLAUDE.md with verified build/test/lint commands, prunes unused language rules (and records them in
 `.claude/.eng-standards-ignore`), asks whether to use OpenSpec, creates `.env.example`.
+
+### `/eng:spec`
+```text
+/eng:spec                       # after /opsx:propose: lint + ≤10 ambiguity questions, then scenario IDs for tests
+/eng:spec add-refunds           # a specific change
+/eng:spec --before-archive      # all tasks done, all tickets closed, every scenario tested, lint clean
+```
+Shows ERRORs, WARNs and questions, then asks **fix all · choose · leave as is** — artifacts are only edited after you answer.
+
+### `/eng:retro`
+```text
+/eng:retro            # recurring = ≥ 3 findings in ≥ 2 ledgers
+/eng:retro --min 2
+```
+Proposes one rule line per recurring problem class; approved lines go to `.claude/rules/learned.md` (never overwritten by `/eng:setup`).
 
 ### `/eng:epic`
 OpenSpec change → GitHub epic + tickets.

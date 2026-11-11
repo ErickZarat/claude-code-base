@@ -14,7 +14,8 @@
 - Test behaviour through public interfaces, not private implementation details.
 - Name tests as sentences describing behaviour: `returns 404 when invoice does not exist`.
 - Arrange / Act / Assert structure; one behaviour per test.
-- Every requirement / OpenSpec scenario maps to at least one test; reference it in the test name or a comment.
+- Every requirement / OpenSpec scenario maps to at least one test, marked with a comment
+  `spec: <capability>/<scenario-slug>` (e.g. `// spec: billing/refund-above-total-is-rejected`).
 - Unit tests use fakes/stubs of the interfaces (ports) — another payoff of interface-first design.
   Integration tests exercise real adapters (Testcontainers or equivalent) instead of mocking the database.
 - Deterministic: no real network, no sleeps, no dependence on wall-clock time or test order. Inject clocks and ID generators.

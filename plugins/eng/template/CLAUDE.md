@@ -32,8 +32,11 @@ TODO: where domain code, adapters, config, tests and migrations live.
 
 ## Planning workflow
 - If an `openspec/` folder exists: every non-trivial change goes through OpenSpec. Do not code ahead of an approved change:
-  `/opsx:propose` → approve → `/eng:epic` (GitHub epic + one ticket per task) → `/eng:task next` per ticket
-  (one branch + one PR each, DoD + review cycle on every PR) → merge → `/opsx:archive`.
+  `/opsx:propose` → `/eng:spec` (lint + questions) → approve → `/eng:epic` (milestone + one ticket per task) →
+  `/eng:task next` per ticket (one branch + one PR each, DoD + review cycle on every PR) → merge →
+  `/eng:spec --before-archive` → `/opsx:archive`.
+- Bugs and small fixes: `/eng:task <issue>` or `/eng:task new "title" --bug` (lite path, no proposal).
+- Decisions: `docs/decisions/` (`decision` skill). Recurring review findings → `/eng:retro` → `.claude/rules/learned.md`.
 - Otherwise: use the `plan-change` skill before writing code for anything beyond a one-file fix.
 
 ## Non-negotiables (details in .claude/rules/)

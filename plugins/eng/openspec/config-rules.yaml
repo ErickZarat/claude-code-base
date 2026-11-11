@@ -1,0 +1,18 @@
+# eng@claude-code-base — rules to merge under `rules:` in the project's openspec/config.yaml.
+# OpenSpec injects them when it writes each artifact. Every rule starts with "[eng]" so re-merging is idempotent:
+# replace existing "[eng]" lines, keep the project's own rules untouched.
+rules:
+  proposal:
+    - "[eng] Keep it short: why, what changes, impact, out of scope."
+  specs:
+    - "[eng] Every requirement has at least one scenario with WHEN and THEN, plus error/edge-case scenarios (invalid input, not found, limits, permission, downstream failure)."
+    - "[eng] Outcomes are measurable — no 'fast', 'properly', 'as needed', 'etc.'; state numbers and exact responses (e.g. 'responds 422 within 200 ms')."
+    - "[eng] Scenario names are unique within a capability and stay stable: tests link to them as `spec: <capability>/<scenario-slug>`."
+  design:
+    - "[eng] Include '## Non-functional requirements': only the relevant rows of latency/throughput, data volume, availability, security, observability, cost — or 'None beyond defaults'."
+    - "[eng] Include '## Contracts' when an API, .proto, OpenAPI or event schema changes: what changes and whether it stays backwards compatible (breaking → new version)."
+    - "[eng] For each significant choice between real alternatives, list the options and the decision, and record it in docs/decisions/ (decision skill)."
+  tasks:
+    - "[eng] One task = one PR-sized behaviour (about a day or less), named after what it delivers; tests are part of each task (TDD), never a separate 'write tests' task."
+    - "[eng] Annotate dependencies and size: '- [ ] 1.2 POST /refunds (after: 1.1; size: S)'. Sizes S/M/L; split anything L."
+    - "[eng] Every requirement is covered by at least one task; add '(req: <Requirement name>)' when the title doesn't make it obvious."
