@@ -1,5 +1,5 @@
 ---
-name: pr-review
+name: review-once
 description: One review round of a PR or branch with independent reviewer subagents; severity-ranked findings and a verdict.
 disable-model-invocation: true
 argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--scope FULL|TARGETED|VERIFY] [--ledger path]"
@@ -9,7 +9,7 @@ argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--scope F
 
 Reviewers are subagents (fresh context) so the author never grades its own work. Severity scale:
 🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION (defined in
-`${CLAUDE_PLUGIN_ROOT}/skills/review-cycle/SKILL.md`).
+`${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md`).
 
 **Token rules:** reviewers read ONE shared packet instead of exploring the repo; only the reviewers the change needs
 are launched; deterministic tools run first; output is tables only.
@@ -22,7 +22,7 @@ are launched; deterministic tools run first; output is tables only.
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_packet.py" --base <base> --out <dir>/packet.md   [--since <sha> for re-review rounds]
 ```
-If `${CLAUDE_PLUGIN_ROOT}` is not expanded: `find ~/.claude/plugins -path '*eng-standards*/scripts/review_packet.py' | head -1`.
+If `${CLAUDE_PLUGIN_ROOT}` is not expanded: `find ~/.claude/plugins -path '*claude-code-base/eng/*/scripts/review_packet.py' | head -1`.
 Read only its **Triage** section yourself; reviewers read the whole packet. For a PR, append the PR body to the packet
 under `## PR description` if the packet lists no requirement sources.
 
@@ -42,7 +42,7 @@ not new findings.
 | **standard** (default) | `requirements-verifier` + `code-reviewer` + `performance-reviewer` *only if triage says performance: yes* | Normal PRs |
 | **thorough** | standard + `performance-reviewer` always + general-purpose security subagent following `${CLAUDE_PLUGIN_ROOT}/skills/secure-self-review/SKILL.md` + `pr-review-toolkit` agents if installed; run `requirements-verifier` and `code-reviewer` with `model: opus` | Auth, payments, migrations, public APIs, big refactors |
 
-**Scope** (set by review-cycle): FULL = as above · TARGETED = `requirements-verifier` + only the reviewers for the
+**Scope** (set by review): FULL = as above · TARGETED = `requirements-verifier` + only the reviewers for the
 areas that had MAJOR fixes, packet built with `--since` · VERIFY = `fix-verifier` only, packet built with `--since`.
 
 ## 5. Confirm before reporting

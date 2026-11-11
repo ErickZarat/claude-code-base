@@ -1,5 +1,5 @@
 ---
-name: definition-of-done
+name: dod
 description: Use before saying a coding task is done, committing, or opening a PR: build, tests, lint, diff and security checks, honest summary.
 ---
 

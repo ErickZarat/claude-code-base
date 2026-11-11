@@ -1,6 +1,6 @@
 ---
 name: performance-reviewer
-description: Reviews a diff for efficiency problems at expected scale — complexity, N+1/queries/indexes, I/O, concurrency, memory, leaks. Used by pr-review when triage flags data access, loops or I/O.
+description: Reviews a diff for efficiency problems at expected scale — complexity, N+1/queries/indexes, I/O, concurrency, memory, leaks. Used by review-once when triage flags data access, loops or I/O.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

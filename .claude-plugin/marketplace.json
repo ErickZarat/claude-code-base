@@ -4,9 +4,9 @@
   "description": "Engineering standards for Claude Code: no vibe coding, TDD, reuse, interface-first design, security guards, and iterative PR review.",
   "plugins": [
     {
-      "name": "eng-standards",
-      "source": "./plugins/eng-standards",
-      "description": "Skills, reviewer agents, secret-guard hook and the per-project rules template (installed with /eng-standards:setup)."
+      "name": "eng",
+      "source": "./plugins/eng",
+      "description": "Skills, reviewer agents, secret-guard hook and the per-project rules template (installed with /eng:setup)."
     }
   ]
 }

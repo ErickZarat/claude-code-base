@@ -3,8 +3,8 @@
 <!--
   Keep this file SHORT. It loads into every session.
   Universal rules live in .claude/rules/ (auto-loaded).
-  Skills, reviewer agents and the secret guard come from the eng-standards plugin (/plugin).
-  Run `/eng-standards:setup` (or the `bootstrap-project` skill) once to fill in the sections marked TODO.
+  Skills, reviewer agents and the secret guard come from the eng plugin (/plugin).
+  Run `/eng:setup` (or the `bootstrap` skill) once to fill in the sections marked TODO.
 -->
 
 ## What this project is
@@ -36,7 +36,7 @@ TODO: where domain code, adapters, config, tests and migrations live.
 3. Reuse before you write: search the codebase first (`reuse-first` skill).
 4. Depend on interfaces, not implementations (`interface-first-design` skill).
 5. Never write, print, log or commit secrets. No backdoors, debug bypasses or hidden flags.
-6. A task is done only when `definition-of-done` passes. Changes are merge-ready only after `/eng-standards:review-cycle`
+6. A task is done only when `dod` passes. Changes are merge-ready only after `/eng:review`
    (review → fix → re-review rounds) exits clean: no open blockers, every requirement implemented and tested.
 
 ## Project-specific gotchas

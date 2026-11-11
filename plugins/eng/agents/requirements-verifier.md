@@ -1,6 +1,6 @@
 ---
 name: requirements-verifier
-description: Verifies a change implements all its requirements correctly, with tests, and nothing unrequested. Builds a requirement → code → test table. Used by pr-review / review-cycle.
+description: Verifies a change implements all its requirements correctly, with tests, and nothing unrequested. Builds a requirement → code → test table. Used by review-once / review.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-PACKET_SCRIPT = Path(__file__).resolve().parents[1] / "plugins/eng-standards/scripts/review_packet.py"
+PACKET_SCRIPT = Path(__file__).resolve().parents[1] / "plugins/eng/scripts/review_packet.py"
 
 
 def git(repo: Path, *args: str) -> str:

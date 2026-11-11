@@ -23,7 +23,7 @@
 
 ## After writing code
 - Run the project's build, tests and linter (commands in CLAUDE.md). Report real output, not assumptions.
-- Run the `definition-of-done` skill before saying the task is complete.
+- Run the `dod` skill before saying the task is complete.
 - Summarize: what changed, why, how it was verified, and any follow-ups or risks.
 
 ## Git

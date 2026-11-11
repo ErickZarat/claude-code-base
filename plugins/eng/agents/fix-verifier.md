@@ -1,6 +1,6 @@
 ---
 name: fix-verifier
-description: Cheap re-review for VERIFY rounds — checks each FIXED ledger finding against the remediation diff and flags regressions. Used by review-cycle.
+description: Cheap re-review for VERIFY rounds — checks each FIXED ledger finding against the remediation diff and flags regressions. Used by review.
 tools: Read, Grep, Glob, Bash
 model: haiku
 ---

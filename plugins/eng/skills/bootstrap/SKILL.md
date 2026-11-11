@@ -1,6 +1,6 @@
 ---
-name: bootstrap-project
-description: Adapt the eng-standards setup to this repo: fill CLAUDE.md, prune language rules, optional OpenSpec.
+name: bootstrap
+description: Adapt the eng setup to this repo: fill CLAUDE.md, prune language rules, optional OpenSpec.
 disable-model-invocation: true
 ---
 
@@ -19,7 +19,7 @@ Keep CLAUDE.md under ~80 lines. If something cannot be determined, ask the user.
 ## 3. Prune language rules
 In `.claude/rules/lang/`, keep only files for languages present in the repo. Ask before deleting.
 For every file you delete, add its path (e.g. `.claude/rules/lang/python.md`) to `.claude/.eng-standards-ignore`
-so `/eng-standards:setup` updates do not reinstall it.
+so `/eng:setup` updates do not reinstall it.
 Add a new path-scoped rule file if the project uses a language/framework not covered.
 
 ## 4. Planning workflow

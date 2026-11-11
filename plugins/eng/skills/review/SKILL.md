@@ -1,5 +1,5 @@
 ---
-name: review-cycle
+name: review
 description: Review → fix → re-review rounds until merge-ready; severity decides each next round's scope; findings tracked in a ledger.
 disable-model-invocation: true
 argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rounds N]"
@@ -8,7 +8,7 @@ argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rou
 # Review cycle
 
 Two roles, never mixed:
-- **Reviewers** = fresh subagents launched each round by following `${CLAUDE_PLUGIN_ROOT}/skills/pr-review/SKILL.md`
+- **Reviewers** = fresh subagents launched each round by following `${CLAUDE_PLUGIN_ROOT}/skills/review-once/SKILL.md`
   (read that file; do not re-explain it). They raise findings; they never edit code.
 - **Author** = this session. It remediates findings; it never marks its own fix as verified — the next round does.
 
@@ -50,7 +50,7 @@ Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) 
 ## Loop
 
 ### Round N — Review
-1. Run one pr-review round with the scope chosen below and the ledger path. Round 1 uses `--depth` (or the packet's
+1. Run one review-once round with the scope chosen below and the ledger path. Round 1 uses `--depth` (or the packet's
    suggestion) at scope FULL; later rounds build the packet with `--since <last reviewed commit>` so reviewers
    read only the remediation diff.
 2. Reviewers must: (a) verify every FIXED item → VERIFIED or REOPENED (with reason), (b) check for regressions

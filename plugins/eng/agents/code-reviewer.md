@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Single combined reviewer for code quality, security, test quality and architecture rules on a diff. Replaces several specialist reviewers to save tokens. Used by pr-review.
+description: Single combined reviewer for code quality, security, test quality and architecture rules on a diff. Replaces several specialist reviewers to save tokens. Used by review-once.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -30,7 +30,7 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 ## Output — table only
 ```
 | Sev | Area | Location | Finding | Fix |
-Sev: 🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION   (scale defined in the review-cycle skill)
+Sev: 🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION   (scale defined in the review skill)
 Exploitable security issue or leaked secret = 🔴. Untested new behaviour = 🔴.
 ```
 Max 15 findings, most severe first. No praise, no summary paragraph.

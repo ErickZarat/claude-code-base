@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-HOOK_SCRIPT = Path(__file__).resolve().parents[1] / "plugins/eng-standards/hooks/guard_secrets.py"
+HOOK_SCRIPT = Path(__file__).resolve().parents[1] / "plugins/eng/hooks/guard_secrets.py"
 BLOCKED_EXIT_CODE = 2
 ALLOWED_EXIT_CODE = 0
 

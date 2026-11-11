@@ -28,7 +28,7 @@ jobs:
         run: python scripts/validate.py
 
       - name: Shellcheck installer scripts
-        run: shellcheck install.sh plugins/eng-standards/install.sh
+        run: shellcheck install.sh plugins/eng/install.sh
 
       - name: Tests
         run: pytest -q

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_DIR = REPO_ROOT / "plugins/eng-standards"
+PLUGIN_DIR = REPO_ROOT / "plugins/eng"
 SAMPLE_RULE = ".claude/rules/security.md"
 
 
@@ -129,3 +129,28 @@ def test_user_mode_installs_only_rules_into_home(plugin_copy, tmp_path):
     assert (fake_home / SAMPLE_RULE).is_file()
     assert not (fake_home / "CLAUDE.md").exists()
     assert not (fake_home / ".claude/settings.json").exists()
+
+
+def test_migrates_old_plugin_name_in_project_settings(plugin_copy, project):
+    settings_file = project / ".claude/settings.json"
+    settings_file.parent.mkdir(parents=True)
+    settings_file.write_text('{"enabledPlugins": {"eng-standards@claude-code-base": true, "other@x": true}}\n')
+
+    output = run_installer(plugin_copy, str(project))
+
+    migrated = settings_file.read_text()
+    assert '"eng@claude-code-base": true' in migrated
+    assert "eng-standards@claude-code-base" not in migrated
+    assert '"other@x": true' in migrated
+    assert "Migrated" in output
+
+
+def test_migration_respects_dry_run(plugin_copy, project):
+    settings_file = project / ".claude/settings.json"
+    settings_file.parent.mkdir(parents=True)
+    original = '{"enabledPlugins": {"eng-standards@claude-code-base": true}}\n'
+    settings_file.write_text(original)
+
+    run_installer(plugin_copy, "--dry-run", str(project))
+
+    assert settings_file.read_text() == original

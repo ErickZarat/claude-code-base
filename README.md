@@ -9,7 +9,7 @@ PR review until every requirement is implemented and tested.** Works with or wit
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
 - [Reviewer agents](#reviewer-agents)
-- [Review cycle in detail](#review-cycle-in-detail)
+- [Review cycle in detail](#review-in-detail)
 - [Rules](#rules)
 - [Security guard](#security-guard)
 - [Updating and versioning](#updating-and-versioning)
@@ -24,16 +24,16 @@ PR review until every requirement is implemented and tested.** Works with or wit
 **1. Once per machine** — inside any Claude Code session:
 ```text
 /plugin marketplace add ErickZarat/claude-code-base
-/plugin install eng-standards@claude-code-base          # choose "user" scope → works in every project
+/plugin install eng@claude-code-base          # choose "user" scope → works in every project
 /plugin install security-guidance@claude-plugins-official
 /plugin install pr-review-toolkit@claude-plugins-official   # optional, improves code-quality review
 ```
-Private repo: Claude Code fetches it with your git credentials (`gh auth login` or SSH). Type `/eng-standards:` to
+Private repo: Claude Code fetches it with your git credentials (`gh auth login` or SSH). Type `/eng:` to
 confirm the commands appear.
 
 **2. Once per project** — open Claude Code in the repo:
 ```text
-/eng-standards:setup
+/eng:setup
 ```
 Previews, installs rules + CLAUDE.md + settings + pre-commit, then fills CLAUDE.md for your stack. Commit the result.
 
@@ -41,8 +41,8 @@ Previews, installs rules + CLAUDE.md + settings + pre-commit, then fills CLAUDE.
 ```text
 /opsx:propose <what you want>        # or just describe it — Claude uses plan-change if there is no OpenSpec
   … approve the plan, Claude implements with TDD …
-/eng-standards:definition-of-done    # self-check before the PR
-/eng-standards:review-cycle 42       # review → fix → re-review until merge-ready (42 = PR number)
+/eng:dod    # self-check before the PR
+/eng:review 42       # review → fix → re-review until merge-ready (42 = PR number)
 /clear                               # start the next task in a fresh context
 ```
 That's it. Everything below is reference.
@@ -53,8 +53,8 @@ That's it. Everything below is reference.
 
 ```
  Plan ───────────► Implement (TDD) ───────► Done check ─────────► Review cycle ──────────► Merge
- /opsx:propose      tdd, reuse-first,        /eng-standards:        /eng-standards:          you
- or plan-change     interface-first-design   definition-of-done     review-cycle <PR#>
+ /opsx:propose      tdd, reuse-first,        /eng:        /eng:          you
+ or plan-change     interface-first-design   dod     review <PR#>
  (you approve)      (automatic via rules)                           (stops to ask when needed)
 ```
 
@@ -62,9 +62,9 @@ That's it. Everything below is reference.
 |---|---|---|
 | 1. Plan | Describe the change; approve the plan | Reads the code, asks questions, writes an OpenSpec change or a `plan-change` plan. No code before approval |
 | 2. Implement | Watch / answer questions | Red → green → refactor per behaviour, searches for reusable code first, puts external dependencies behind interfaces |
-| 3. Done check | Run `/eng-standards:definition-of-done` | Build, tests, lint, diff review, security self-review, honest summary |
+| 3. Done check | Run `/eng:dod` | Build, tests, lint, diff review, security self-review, honest summary |
 | 4. PR | Open the PR (or ask Claude: "commit and open a PR") | — |
-| 5. Review | Run `/eng-standards:review-cycle <PR#>` | Review rounds with independent reviewers, fixes findings with TDD, re-reviews by severity, writes a ledger |
+| 5. Review | Run `/eng:review <PR#>` | Review rounds with independent reviewers, fixes findings with TDD, re-reviews by severity, writes a ledger |
 | 6. Decide | Answer escalated questions; read the verdict | Posts the report to the PR only if you ask |
 | 7. Merge | You merge | Never approves or merges |
 
@@ -72,42 +72,42 @@ That's it. Everything below is reference.
 
 ## Command reference
 
-All commands are plugin skills, invoked as `/eng-standards:<name>`. Arguments are read by Claude, so plain language
+All commands are plugin skills, invoked as `/eng:<name>`. Arguments are read by Claude, so plain language
 works too ("review PR 42, max 3 rounds").
 
-### `/eng-standards:setup`
+### `/eng:setup`
 Install or update the per-project files.
 ```text
-/eng-standards:setup               # install/update in the current repo (shows a dry run first)
-/eng-standards:setup --dry-run     # only show what would change
-/eng-standards:setup --user        # rules only, into ~/.claude (apply to every project on this machine)
+/eng:setup               # install/update in the current repo (shows a dry run first)
+/eng:setup --dry-run     # only show what would change
+/eng:setup --user        # rules only, into ~/.claude (apply to every project on this machine)
 ```
 - First run: creates `.claude/rules/`, `.claude/settings.json`, `CLAUDE.md`, `.pre-commit-config.yaml`, updates `.gitignore`,
-  then runs `bootstrap-project`.
+  then runs `bootstrap`.
 - Later runs: updates rules you haven't modified; for rules you customised, writes `<file>.eng-new` and helps you merge.
 - Never overwrites `CLAUDE.md` or `settings.json`.
 
-### `/eng-standards:bootstrap-project`
+### `/eng:bootstrap`
 Adapt the setup to the repo (runs automatically after the first `setup`). Detects the stack, fills every `TODO` in
 CLAUDE.md with verified build/test/lint commands, prunes unused language rules (and records them in
 `.claude/.eng-standards-ignore`), asks whether to use OpenSpec, creates `.env.example`.
 
-### `/eng-standards:definition-of-done`
+### `/eng:dod`
 Run before saying a task is finished or opening a PR.
 ```text
-/eng-standards:definition-of-done
+/eng:dod
 ```
 Checks: build, tests, lint (real output) · diff only touches the task · no debug code/TODOs · reuse applied ·
 interfaces for external deps · TDD followed · every requirement implemented · docs/.env.example updated ·
 `secure-self-review` passed. Ends with a `Done / Changed / Verified / Security / Follow-ups` summary; failures go at the top.
 
-### `/eng-standards:pr-review`
+### `/eng:review-once`
 **One** review round. Reports findings; does not fix anything.
 ```text
-/eng-standards:pr-review                       # current branch vs main
-/eng-standards:pr-review 42                    # PR #42 (needs gh)
-/eng-standards:pr-review develop               # current branch vs develop
-/eng-standards:pr-review 42 --depth thorough   # quick | standard | thorough (default: triage decides)
+/eng:review-once                       # current branch vs main
+/eng:review-once 42                    # PR #42 (needs gh)
+/eng:review-once develop               # current branch vs develop
+/eng:review-once 42 --depth thorough   # quick | standard | thorough (default: triage decides)
 ```
 1. Builds a **review packet** once (`scripts/review_packet.py`): diff, changed files, requirement sources, triage.
 2. Deterministic gates first: build, tests, lint, gitleaks, semgrep (if installed).
@@ -124,15 +124,15 @@ interfaces for external deps · TDD followed · every requirement implemented ·
 
 Use it when you only want an opinion, e.g. on someone else's PR. Say "post it to the PR" to comment via `gh`.
 
-### `/eng-standards:review-cycle`
+### `/eng:review`
 Iterative review → remediation → re-review until merge-ready. **This is the one to use on your own PRs.**
 ```text
-/eng-standards:review-cycle                    # current branch vs main
-/eng-standards:review-cycle 42                 # PR #42
-/eng-standards:review-cycle 42 --depth thorough   # depth of round 1 (default: triage decides)
-/eng-standards:review-cycle 42 --max-rounds 5     # default 3
+/eng:review                    # current branch vs main
+/eng:review 42                 # PR #42
+/eng:review 42 --depth thorough   # depth of round 1 (default: triage decides)
+/eng:review 42 --max-rounds 5     # default 3
 ```
-See [Review cycle in detail](#review-cycle-in-detail).
+See [Review cycle in detail](#review-in-detail).
 
 ### Planning commands
 | Command | When |
@@ -159,7 +159,7 @@ You can still ask for them by name ("use the tdd skill", "run reuse-first for th
 
 ## Reviewer agents
 
-Read-only subagents with their own context, so they don't grade their own work. Used by `pr-review` / `review-cycle`,
+Read-only subagents with their own context, so they don't grade their own work. Used by `review-once` / `review`,
 or directly: *"use the requirements-verifier agent on this branch"*. All read the shared review packet first and
 answer with tables only.
 
@@ -301,12 +301,12 @@ deliberate fake: add `pragma: allowlist secret` on that line. Block messages sho
 ## Updating and versioning
 
 **Publishing a change (this repo):** edit → tests green → bump `version` in
-`plugins/eng-standards/.claude-plugin/plugin.json` → `CHANGELOG.md` entry → push → tag `vX.Y.Z`.
+`plugins/eng/.claude-plugin/plugin.json` → `CHANGELOG.md` entry → push → tag `vX.Y.Z`.
 
 **Receiving it:**
 ```text
 /plugin marketplace update claude-code-base   # skills, agents, hook update immediately
-/eng-standards:setup                          # in each project, to sync rules
+/eng:setup                          # in each project, to sync rules
 ```
 | File state in the project | What `setup` does |
 |---|---|
@@ -323,7 +323,7 @@ Installed version: `.claude/.eng-standards-version`. Without the plugin: `git cl
 ## Recommended extras
 
 ```text
-/plugin install pr-review-toolkit@claude-plugins-official   # code-quality reviewers used by pr-review
+/plugin install pr-review-toolkit@claude-plugins-official   # code-quality reviewers used by review-once
 /plugin install code-review@claude-plugins-official
 /plugin marketplace add trailofbits/skills                  # semgrep, supply-chain-risk-auditor, ...
 ```
@@ -358,6 +358,6 @@ Your habits matter as much:
 
 See `CLAUDE.md`. Quick check:
 ```bash
-python3 scripts/validate.py && shellcheck install.sh plugins/eng-standards/install.sh && pytest -q
-claude --plugin-dir ./plugins/eng-standards   # try plugin changes locally
+python3 scripts/validate.py && shellcheck install.sh plugins/eng/install.sh && pytest -q
+claude --plugin-dir ./plugins/eng   # try plugin changes locally
 ```

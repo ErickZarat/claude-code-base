@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs or updates the eng-standards project files (rules, CLAUDE.md, settings, pre-commit config).
+# Installs or updates the eng project files (rules, CLAUDE.md, settings, pre-commit config).
 # Skills, agents and the secret-guard hook come from the plugin itself — this script only handles the
 # files Claude Code plugins cannot distribute.
 #
@@ -30,7 +30,7 @@ dry_run=false
 user_mode=false
 target_dir="$PWD"
 
-created=() updated=() unchanged=() conflicts=() seeded_skip=() ignored=()
+created=() updated=() unchanged=() conflicts=() seeded_skip=() ignored=() migrated=()
 
 file_checksum() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
@@ -120,6 +120,22 @@ seed_file() {
   fi
 }
 
+# v2.0.0 renamed the plugin eng-standards -> eng. settings.json is project-owned (never overwritten),
+# so only the plugin id is rewritten in place.
+OLD_PLUGIN_ID="eng-standards@claude-code-base"
+NEW_PLUGIN_ID="eng@claude-code-base"
+
+migrate_plugin_id() {
+  local settings_file="$target_dir/.claude/settings.json"
+  [[ -f "$settings_file" ]] && grep -qF "\"$OLD_PLUGIN_ID\"" "$settings_file" || return 0
+  migrated+=(".claude/settings.json: $OLD_PLUGIN_ID -> $NEW_PLUGIN_ID")
+  $dry_run && return 0
+  local temporary_file
+  temporary_file="$(mktemp)"
+  sed "s/\"$OLD_PLUGIN_ID\"/\"$NEW_PLUGIN_ID\"/g" "$settings_file" > "$temporary_file"
+  mv "$temporary_file" "$settings_file"
+}
+
 append_gitignore_entries() {
   local gitignore_file="$target_dir/.gitignore" entry
   $dry_run && return 0
@@ -164,6 +180,7 @@ for managed_path in "${MANAGED_PATHS[@]}"; do
     sync_managed_file "$relative_path"
   done < <(template_files_under "$managed_path")
 done
+$user_mode || migrate_plugin_id
 for seed_path in ${SEED_PATHS[@]+"${SEED_PATHS[@]}"}; do
   seed_file "$seed_path"
 done
@@ -176,11 +193,12 @@ if ! $dry_run; then
 fi
 
 $dry_run && echo "[dry run — nothing written]"
-echo "eng-standards $PLUGIN_VERSION -> $target_dir"
+echo "eng $PLUGIN_VERSION -> $target_dir"
 print_group "Created:" ${created[@]+"${created[@]}"}
 print_group "Updated:" ${updated[@]+"${updated[@]}"}
 print_group "Locally modified — kept yours, new version saved as <file>.eng-new (merge, then delete it):" \
   ${conflicts[@]+"${conflicts[@]}"}
 print_group "Project-owned, left untouched:" ${seeded_skip[@]+"${seeded_skip[@]}"}
+print_group "Migrated:" ${migrated[@]+"${migrated[@]}"}
 print_group "Skipped (listed in .claude/.eng-standards-ignore):" ${ignored[@]+"${ignored[@]}"}
 echo "Up to date: ${#unchanged[@]} file(s)"
