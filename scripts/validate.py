@@ -15,6 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 KEBAB_CASE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+ALLOWED_AGENT_MODELS = {"haiku", "sonnet", "opus", "inherit"}
+MAX_SKILL_DESCRIPTION_LENGTH = 200  # descriptions are sent on every request
 
 problems: list[str] = []
 
@@ -66,8 +68,18 @@ def check_plugin(plugin_dir: Path) -> None:
 
     for skill_file in sorted(plugin_dir.glob("skills/*/SKILL.md")):
         check_named_markdown(skill_file, skill_file.parent.name, "skill")
+        description_length = len(frontmatter_fields(skill_file).get("description", ""))
+        if description_length > MAX_SKILL_DESCRIPTION_LENGTH:
+            problems.append(f"{skill_file.relative_to(REPO_ROOT)}: description is {description_length} chars; "
+                            f"keep it under {MAX_SKILL_DESCRIPTION_LENGTH} (costs tokens on every request)")
     for agent_file in sorted(plugin_dir.glob("agents/*.md")):
         check_named_markdown(agent_file, agent_file.stem, "agent")
+        model = frontmatter_fields(agent_file).get("model", "inherit")
+        if model not in ALLOWED_AGENT_MODELS:
+            problems.append(f"{agent_file.relative_to(REPO_ROOT)}: model '{model}' not in {sorted(ALLOWED_AGENT_MODELS)}")
+        if model in {"opus", "inherit"}:
+            problems.append(f"{agent_file.relative_to(REPO_ROOT)}: pin a cheaper default model (sonnet/haiku); "
+                            "escalate to opus per call for thorough reviews")
 
     template_settings = plugin_dir / "template/.claude/settings.json"
     if template_settings.exists():

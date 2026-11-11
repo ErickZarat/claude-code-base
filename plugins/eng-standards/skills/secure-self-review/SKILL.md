@@ -1,6 +1,6 @@
 ---
 name: secure-self-review
-description: Use after writing or changing code that touches input handling, auth, data access, config, secrets, file/OS access, networking or dependencies — and always as part of definition-of-done. Reviews the diff for leaked secrets, backdoors and common vulnerabilities.
+description: Use after changing input handling, auth, data access, config, secrets, networking or dependencies: scan and review the diff for security issues.
 ---
 
 # Secure self-review

@@ -1,6 +1,6 @@
 ---
 name: plan-change
-description: Use before implementing any change larger than a one-file fix in a project that does NOT use OpenSpec (no openspec/ folder). Produces a short written plan for approval so nothing is vibe coded. If openspec/ exists, use the OpenSpec propose workflow instead.
+description: Use before any change larger than a one-file fix in a repo without openspec/: write a short plan and wait for approval.
 ---
 
 # Plan a change

@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Use whenever implementing a feature, behaviour change or bug fix — before writing any production code. Enforces the red-green-refactor cycle with real test output as evidence at each step.
+description: Use before writing any production code for a feature, change or bug fix: red → green → refactor with real test output.
 ---
 
 # Test-driven development

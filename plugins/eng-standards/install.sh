@@ -23,7 +23,8 @@ PLUGIN_VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$PLUGIN_DIR/.clau
 
 MANAGED_PATHS=(".claude/rules" ".pre-commit-config.yaml")
 SEED_PATHS=("CLAUDE.md" ".claude/settings.json")
-GITIGNORE_ENTRIES=(".env" ".env.*" "!.env.example" "CLAUDE.local.md" ".claude/settings.local.json" "*.eng-new")
+GITIGNORE_ENTRIES=(".env" ".env.*" "!.env.example" "CLAUDE.local.md" ".claude/settings.local.json" "*.eng-new"
+  ".reviews/*/packet.md" "openspec/changes/*/reviews/packet.md")
 
 dry_run=false
 user_mode=false

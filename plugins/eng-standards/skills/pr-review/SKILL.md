@@ -1,65 +1,62 @@
 ---
 name: pr-review
-description: One review round of a pull request or branch — requirements fulfilment, correctness against the spec, TDD/test quality, efficiency, security, and code quality — run by independent reviewer subagents and consolidated into severity-ranked findings and a verdict. Use for a single review; use review-cycle to iterate review → fix → re-review until done. Accepts an optional PR number or base branch.
-argument-hint: "[PR number | base branch] [--scope FULL|TARGETED|VERIFY] [--ledger path]"
+description: One review round of a PR or branch with independent reviewer subagents; severity-ranked findings and a verdict.
+disable-model-invocation: true
+argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--scope FULL|TARGETED|VERIFY] [--ledger path]"
 ---
 
 # PR review (one round)
 
-Reviewers must be independent of the author: run the checks in **subagents** (fresh context), never by re-reading
-your own reasoning from this session. Severity scale and finding types are defined in
-the `review-cycle` skill (in this plugin: `${CLAUDE_PLUGIN_ROOT}/skills/review-cycle/SKILL.md`) (🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION) — use them everywhere.
+Reviewers are subagents (fresh context) so the author never grades its own work. Severity scale:
+🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION (defined in
+`${CLAUDE_PLUGIN_ROOT}/skills/review-cycle/SKILL.md`).
 
-## 1. Scope the review
-- PR number → `gh pr view <n> --json number,title,body,baseRefName,headRefName` and fetch/check out the head.
-  Otherwise base = given branch or `main`; head = current branch.
-- Collect: `git diff --stat <base>...HEAD`, changed files, requirement sources
-  (active `openspec/changes/*`, `docs/plans/*`, PR body, linked issues).
-- `--scope` (default FULL):
-  - **FULL** — all reviewers, whole diff.
-  - **TARGETED** — requirements-verifier + reviewers for the areas named by the caller, on files changed since the last round.
-  - **VERIFY** — requirements-verifier + one general-purpose reviewer that checks each FIXED ledger item and the remediation diff.
-- `--ledger` — if given, pass it to every reviewer: verify FIXED items (→ VERIFIED / REOPENED), do not re-raise
-  DECLINED/ANSWERED items unless the related code changed, and look for regressions caused by fixes.
+**Token rules:** reviewers read ONE shared packet instead of exploring the repo; only the reviewers the change needs
+are launched; deterministic tools run first; output is tables only.
 
-## 2. Run the gates (deterministic, before any AI review)
-Build, full test suite, linters from CLAUDE.md. A failing gate is a 🔴 BLOCKER — still run the reviewers so the
-author gets all findings in one round.
+## 1. Scope
+- PR number → `gh pr view <n> --json title,body,baseRefName,headRefName`; fetch/check out the head. Else base = given branch or `main`.
+- Packet dir: `.reviews/<branch>/` (or `openspec/changes/<change>/reviews/` when an OpenSpec change is active).
 
-## 3. Launch reviewers in parallel (Agent/Task tool, one message, multiple calls)
-Give each: base, head, requirement sources, scope, ledger path, and the severity scale.
-1. **requirements-verifier** — ALWAYS runs. Every requirement implemented, correctly, with tests; no scope creep.
-   Missing/Partial/Wrong/Untested requirement → 🔴 BLOCKER.
-2. **performance-reviewer** — 🔴 High → 🟠 MAJOR (🔴 BLOCKER if it breaks a stated non-functional requirement), 🟠 Medium → 🟡 MINOR, 🟡 Low → 💡.
-3. **Security** — general-purpose subagent following the `secure-self-review` skill (`${CLAUDE_PLUGIN_ROOT}/skills/secure-self-review/SKILL.md`). Exploitable issue or secret → 🔴 BLOCKER.
-4. **Code quality** — `pr-review-toolkit` agents if installed (`code-reviewer`, `pr-test-analyzer`, `silent-failure-hunter`,
-   `type-design-analyzer` if types changed); otherwise a general-purpose subagent reviewing against
-   `.claude/rules/code-quality.md`, `architecture.md`, `testing.md`. Map their scores onto the severity scale.
-
-## 4. Verify findings before reporting
-For every 🔴/🟠 finding, open the cited code and confirm it is real. Drop false positives (say how many). Merge duplicates.
-
-## 5. Report
+## 2. Build the packet (once per round)
 ```
-# PR review — <title> (<base>...<head>) — round <N> — scope <FULL|TARGETED|VERIFY>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_packet.py" --base <base> --out <dir>/packet.md   [--since <sha> for re-review rounds]
+```
+If `${CLAUDE_PLUGIN_ROOT}` is not expanded: `find ~/.claude/plugins -path '*eng-standards*/scripts/review_packet.py' | head -1`.
+Read only its **Triage** section yourself; reviewers read the whole packet. For a PR, append the PR body to the packet
+under `## PR description` if the packet lists no requirement sources.
+
+## 3. Deterministic gates (cheap — before any reviewer)
+Build, tests, lint (commands from CLAUDE.md); `gitleaks detect --no-banner --redact` and `semgrep scan --config auto --error`
+if installed. A failing gate is a 🔴 BLOCKER. Pass a one-line result per gate to the reviewers.
+
+## 4. Pick reviewers by depth
+Depth = `--depth` if given, else the packet's suggested depth. Launch the chosen reviewers in ONE message (parallel),
+each with: packet path, gate results, ledger path (if any), scope.
+
+| Depth | Reviewers | Typical use |
+|---|---|---|
+| **quick** | `code-reviewer` only — also asked to check the change against the requirement sources | Small, low-risk diffs (≤ 50 lines, no security triggers) |
+| **standard** (default) | `requirements-verifier` + `code-reviewer` + `performance-reviewer` *only if triage says performance: yes* | Normal PRs |
+| **thorough** | standard + `performance-reviewer` always + general-purpose security subagent following `${CLAUDE_PLUGIN_ROOT}/skills/secure-self-review/SKILL.md` + `pr-review-toolkit` agents if installed; run `requirements-verifier` and `code-reviewer` with `model: opus` | Auth, payments, migrations, public APIs, big refactors |
+
+**Scope** (set by review-cycle): FULL = as above · TARGETED = `requirements-verifier` + only the reviewers for the
+areas that had MAJOR fixes, packet built with `--since` · VERIFY = `fix-verifier` only, packet built with `--since`.
+
+## 5. Confirm before reporting
+For each 🔴/🟠 finding, read only the cited lines and confirm it's real. Drop false positives (count them). Merge duplicates.
+
+## 6. Report (tables, no essays)
+```
+# Review — <title> (<range>) — round <N> — depth <d> — scope <s>
 Verdict: ✅ APPROVE · 🟠 APPROVE WITH COMMENTS · ❌ REQUEST CHANGES
+Gates: build ✅ tests ✅ lint ✅ gitleaks ✅ semgrep n/a
+Reviewers: <list> · false positives dropped: <n>
 
-## Gates
-Build / Tests / Lint: <results>
-
-## Requirements (requirements-verifier)
-<traceability table + unchecked tasks + out-of-scope changes>
-
-## Previous findings (if ledger)
-| ID | Was | Now (VERIFIED / REOPENED) | Note |
-
-## New findings
-| ID | Sev | Type | Area | Location | Finding | Suggested fix |
-
-## What's good
-<brief, specific>
+## Requirements            (requirements-verifier table, or code-reviewer's check in quick mode)
+## Previous findings       | ID | Was | Now | Note |          (if ledger)
+## New findings            | ID | Sev | Area | Location | Finding | Fix |
 ```
-Verdict: any 🔴/🟠 open, or any ❓ unanswered → REQUEST CHANGES. Only 🟡/💡 → APPROVE WITH COMMENTS. None → APPROVE.
+Verdict: any 🔴/🟠 open or ❓ unanswered → REQUEST CHANGES · only 🟡/💡 → APPROVE WITH COMMENTS · none → APPROVE.
 
-## 6. Optional: post to GitHub
-Only if the user asks: `gh pr review <n> --comment --body-file <report>` (or `--request-changes`). Never approve/merge on your own.
+Post to GitHub only if the user asks (`gh pr review <n> --comment --body-file <report>`). Never approve or merge.

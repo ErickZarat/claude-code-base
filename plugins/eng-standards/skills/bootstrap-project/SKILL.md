@@ -1,6 +1,6 @@
 ---
 name: bootstrap-project
-description: Use once when this base template has just been copied into a new or existing repository, or when the user asks to adapt the Claude setup to the project. Detects the stack, fills in CLAUDE.md, prunes irrelevant language rules, and optionally sets up OpenSpec.
+description: Adapt the eng-standards setup to this repo: fill CLAUDE.md, prune language rules, optional OpenSpec.
 disable-model-invocation: true
 ---
 

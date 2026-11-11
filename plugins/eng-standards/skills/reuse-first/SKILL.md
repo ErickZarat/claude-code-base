@@ -1,6 +1,6 @@
 ---
 name: reuse-first
-description: Use BEFORE creating any new function, class, interface, DTO, constant, utility, endpoint or dependency. Searches the codebase for existing code to reuse or extend so nothing gets duplicated.
+description: Use before creating any function, class, DTO, constant, utility or dependency: search for existing code to reuse or extend.
 ---
 
 # Reuse first

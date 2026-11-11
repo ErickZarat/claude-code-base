@@ -1,6 +1,6 @@
 ---
 name: interface-first-design
-description: Use when adding or changing an integration with anything external or replaceable (database, cache, queue, HTTP/gRPC API, storage, email/SMS, payments, auth provider, clock, ID generator) or when a feature may need multiple implementations. Designs a port interface plus adapter so implementations can be swapped without rewriting business code.
+description: Use when adding or changing anything external or replaceable (DB, cache, queue, API, storage, payments, clock): port + adapter + DI.
 ---
 
 # Interface-first design (ports and adapters)

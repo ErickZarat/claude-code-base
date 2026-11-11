@@ -7,7 +7,9 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
 - `.claude-plugin/marketplace.json` — marketplace catalog (name `claude-code-base`).
 - `plugins/eng-standards/` — the plugin:
   - `skills/*/SKILL.md` — skills (invoked as `/eng-standards:<name>`).
-  - `agents/*.md` — reviewer subagents (`requirements-verifier`, `performance-reviewer`).
+  - `agents/*.md` — reviewer subagents (`requirements-verifier`, `code-reviewer`, `performance-reviewer`, `fix-verifier`);
+    default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
+  - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
   - `hooks/hooks.json` + `hooks/guard_secrets.py` — PreToolUse secret/destructive-command guard.
   - `template/` — files plugins cannot distribute (rules, CLAUDE.md, settings.json, pre-commit), copied into projects by `install.sh`.
   - `install.sh` — manifest-based installer/updater (bash 3.2 compatible — macOS default shell).
@@ -27,6 +29,7 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
 - This repo follows its own standards: TDD for `guard_secrets.py` and `install.sh` changes (failing test first).
 - Never put realistic-looking secrets in tests; build fake values from fragments (see `tests/test_guard_secrets.py`).
 - Keep rules short and precise — one line per behaviour. They load into every session of every project.
+- Token budget: skill descriptions < 200 chars (sent every request); review skills stay manual-only; reviewers read the packet, output tables.
 - Skills/agents: `name` must equal the folder/file name; the `description` decides when Claude uses it — make it specific.
 - Every user-visible change: bump `version` in `plugins/eng-standards/.claude-plugin/plugin.json` (semver) and add a
   `CHANGELOG.md` entry. Template changes reach projects only when they re-run `/eng-standards:setup`.

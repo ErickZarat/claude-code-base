@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Installs or updates the eng-standards project files (rules, CLAUDE.md, settings, pre-commit) in the current repository, then hands over to bootstrap-project for new installs. Use when the user asks to set up, add, or update the engineering standards / base Claude setup in a project.
+description: Install or update the eng-standards rules, CLAUDE.md, settings and pre-commit in this project.
 disable-model-invocation: true
 argument-hint: "[--dry-run] [--user]"
 ---
@@ -14,5 +14,5 @@ argument-hint: "[--dry-run] [--user]"
 3. Run it for real: `bash <installer> $ARGUMENTS "$PWD"`.
 4. If the output lists **locally modified** files, for each one show the diff between `<file>` and `<file>.eng-new`,
    propose a merge, apply it once the user agrees, then delete the `.eng-new` file.
-5. If `CLAUDE.md` was just created (first install), run the `bootstrap-project` skill to fill it in.
+5. If `CLAUDE.md` was just created (first install), follow `${CLAUDE_PLUGIN_ROOT}/skills/bootstrap-project/SKILL.md` to fill it in.
 6. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.

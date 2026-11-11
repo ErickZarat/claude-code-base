@@ -1,13 +1,15 @@
 ---
 name: review-cycle
-description: Iterative review → remediation → re-review loop for a change or PR. Each round reviewers raise findings (issues, suggestions, questions) with severity; the author fixes or answers them; severity decides the scope of the next review round; repeats until exit criteria are met (gates green, all requirements implemented and tested, no open blocking findings). Use when the user asks to review until done, run review rounds, or get a change merge-ready.
-argument-hint: "[PR number | base branch] [--max-rounds N]"
+description: Review → fix → re-review rounds until merge-ready; severity decides each next round's scope; findings tracked in a ledger.
+disable-model-invocation: true
+argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rounds N]"
 ---
 
 # Review cycle
 
 Two roles, never mixed:
-- **Reviewers** = fresh subagents launched by the `pr-review` skill each round. They raise findings; they never edit code.
+- **Reviewers** = fresh subagents launched each round by following `${CLAUDE_PLUGIN_ROOT}/skills/pr-review/SKILL.md`
+  (read that file; do not re-explain it). They raise findings; they never edit code.
 - **Author** = this session. It remediates findings; it never marks its own fix as verified — the next round does.
 
 ## Severity and finding types
@@ -42,7 +44,9 @@ Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) 
 ## Loop
 
 ### Round N — Review
-1. Run the `pr-review` skill with the scope chosen below, passing the ledger path so reviewers can see prior findings.
+1. Run one pr-review round with the scope chosen below and the ledger path. Round 1 uses `--depth` (or the packet's
+   suggestion) at scope FULL; later rounds build the packet with `--since <last reviewed commit>` so reviewers
+   read only the remediation diff.
 2. Reviewers must: (a) verify every FIXED item → VERIFIED or REOPENED (with reason), (b) check for regressions
    introduced by the fixes, (c) raise new findings with severity, (d) NOT re-raise DECLINED/ANSWERED items
    unless the code changed in a way that makes them relevant again.
@@ -60,24 +64,27 @@ Work through findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGG
 - Run the gates (build, tests, lint) after remediation. Mark items FIXED with commit refs.
 
 ### Choose the next round's scope
-| Highest severity fixed this round | Next round |
-|-----------------------------------|------------|
-| Any 🔴 BLOCKER, or fixes touched > ~30% of the diff, or new files/ports added | **FULL** — all reviewers on the whole change |
-| 🟠 MAJOR | **TARGETED** — reviewers for the affected areas (e.g. performance, requirements) on changed files + verify all FIXED items |
-| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** — one reviewer confirms each FIXED item and checks the remediation diff for regressions |
-| Nothing changed (all declined/answered) | No new round needed |
+| Highest severity fixed this round | Next round | Reviewers (cost) |
+|-----------------------------------|------------|------------------|
+| Any 🔴 BLOCKER, or fixes touched > ~30% of the diff, or new files/ports added | **FULL** | same set as round 1 |
+| 🟠 MAJOR | **TARGETED** | `requirements-verifier` + reviewers for the affected areas, remediation diff only |
+| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** | `fix-verifier` (haiku) only, remediation diff only |
+| Nothing changed (all declined/answered) | — | no new round |
 
-Requirements verification and test-coverage checks run in EVERY round, whatever the scope —
-missing tests are always a BLOCKER.
+Gates (build, tests, lint) run in EVERY round — failing or missing tests are always a 🔴 BLOCKER.
+If `fix-verifier` returns `ESCALATE: TARGETED`, run a TARGETED round instead of exiting.
+
+**Token hygiene:** the ledger + packet carry all state between rounds. Do not paste earlier rounds' reports back
+into the conversation; reference the ledger. If the session is long before starting, suggest `/clear` first.
 
 ## Exit criteria (all must hold)
 - [ ] Build, full test suite and lint pass on the final commit.
-- [ ] `requirements-verifier`: every requirement ✅ Done — no Missing, Partial, Wrong or Untested.
+- [ ] Latest `requirements-verifier` result (FULL/TARGETED round, or quick-mode check): every requirement ✅ Done — no Missing, Partial, Wrong or Untested, and no later fix escalated.
 - [ ] No OPEN or REOPENED BLOCKER, MAJOR or QUESTION. Every MINOR is VERIFIED or DECLINED with reason.
 - [ ] Every FIXED item from the last remediation has been VERIFIED by a reviewer (the author cannot self-verify).
 
 ## Stop conditions
-- Default max **5 rounds** (or `--max-rounds`). If reached, stop and report what is still open and why it keeps recurring.
+- Default max **3 rounds** (or `--max-rounds`). If reached, stop and report what is still open and why it keeps recurring.
 - Same finding REOPENED twice → stop and ask the user; the approach probably needs rethinking.
 - Never exit by lowering severities, deleting ledger rows, or skipping reviewers.
 

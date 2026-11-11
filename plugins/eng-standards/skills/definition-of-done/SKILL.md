@@ -1,6 +1,6 @@
 ---
 name: definition-of-done
-description: Use before saying any coding task is complete, before committing, or before opening a PR. Runs build, tests and linters, reviews the diff for quality and security, and produces an honest completion summary.
+description: Use before saying a coding task is done, committing, or opening a PR: build, tests, lint, diff and security checks, honest summary.
 ---
 
 # Definition of done

@@ -14,6 +14,7 @@ PR review until every requirement is implemented and tested.** Works with or wit
 - [Security guard](#security-guard)
 - [Updating and versioning](#updating-and-versioning)
 - [Recommended extras](#recommended-extras)
+- [Token usage](#token-usage)
 - [Developing this repo](#developing-this-repo)
 
 ---
@@ -42,6 +43,7 @@ Previews, installs rules + CLAUDE.md + settings + pre-commit, then fills CLAUDE.
   … approve the plan, Claude implements with TDD …
 /eng-standards:definition-of-done    # self-check before the PR
 /eng-standards:review-cycle 42       # review → fix → re-review until merge-ready (42 = PR number)
+/clear                               # start the next task in a fresh context
 ```
 That's it. Everything below is reference.
 
@@ -105,13 +107,19 @@ interfaces for external deps · TDD followed · every requirement implemented ·
 /eng-standards:pr-review                       # current branch vs main
 /eng-standards:pr-review 42                    # PR #42 (needs gh)
 /eng-standards:pr-review develop               # current branch vs develop
-/eng-standards:pr-review 42 --scope TARGETED   # FULL (default) | TARGETED | VERIFY
+/eng-standards:pr-review 42 --depth thorough   # quick | standard | thorough (default: triage decides)
 ```
-1. Gates: build, full test suite, lint.
-2. Four reviewers in parallel, each in a fresh context: `requirements-verifier`, `performance-reviewer`,
-   security (`secure-self-review`), code quality (`pr-review-toolkit` agents if installed, otherwise your rules).
-3. Verifies every 🔴/🟠 finding against the code; drops false positives.
-4. Report: gates, requirements traceability table, findings with IDs and severity, verdict
+1. Builds a **review packet** once (`scripts/review_packet.py`): diff, changed files, requirement sources, triage.
+2. Deterministic gates first: build, tests, lint, gitleaks, semgrep (if installed).
+3. Launches only the reviewers the change needs, in parallel, each reading the packet:
+
+   | Depth | Reviewers | When |
+   |---|---|---|
+   | `quick` | `code-reviewer` (also checks requirements) | ≤ 50 changed lines, no security triggers |
+   | `standard` | `requirements-verifier` + `code-reviewer` + `performance-reviewer` if triage flags data/loops/I/O | Default |
+   | `thorough` | standard + performance always + dedicated security reviewer + pr-review-toolkit agents, on opus | Auth, payments, migrations, public APIs |
+4. Confirms every 🔴/🟠 finding against the code; drops false positives.
+5. Report (tables): gates, requirements traceability, findings with IDs and severity, verdict
    (✅ APPROVE · 🟠 APPROVE WITH COMMENTS · ❌ REQUEST CHANGES).
 
 Use it when you only want an opinion, e.g. on someone else's PR. Say "post it to the PR" to comment via `gh`.
@@ -121,7 +129,8 @@ Iterative review → remediation → re-review until merge-ready. **This is the 
 ```text
 /eng-standards:review-cycle                    # current branch vs main
 /eng-standards:review-cycle 42                 # PR #42
-/eng-standards:review-cycle 42 --max-rounds 3  # default 5
+/eng-standards:review-cycle 42 --depth thorough   # depth of round 1 (default: triage decides)
+/eng-standards:review-cycle 42 --max-rounds 5     # default 3
 ```
 See [Review cycle in detail](#review-cycle-in-detail).
 
@@ -151,13 +160,30 @@ You can still ask for them by name ("use the tdd skill", "run reuse-first for th
 ## Reviewer agents
 
 Read-only subagents with their own context, so they don't grade their own work. Used by `pr-review` / `review-cycle`,
-or directly: *"use the requirements-verifier agent on this branch"*.
+or directly: *"use the requirements-verifier agent on this branch"*. All read the shared review packet first and
+answer with tables only.
+
+| Agent | Default model | Role |
+|---|---|---|
+| `requirements-verifier` | sonnet (opus in thorough) | Requirement → code → test traceability |
+| `code-reviewer` | sonnet (opus in thorough) | Security, tests, correctness, architecture, readability in one pass |
+| `performance-reviewer` | sonnet | Efficiency at expected scale — only when triage flags it |
+| `fix-verifier` | haiku | Re-review rounds: verifies fixes against the remediation diff, flags regressions |
 
 ### `requirements-verifier`
 - Collects requirements from the OpenSpec change (proposal, tasks, every scenario), `docs/plans/`, PR body, linked issues.
 - Builds a table **requirement → code (file:line) → test** with status ✅ Done · ⚠️ Partial · ❌ Missing · 🐞 Wrong · 🧪 Untested.
 - Lists unchecked tasks and **scope creep** (changed code that maps to no requirement).
 - Checks each requirement has a test that would fail without the code.
+
+### `code-reviewer`
+- One pass over security (secrets, backdoors, injection, authz, dependencies), tests (missing, weak, flaky),
+  correctness (silent failures, edge cases), architecture (interfaces, no duplication) and readability.
+- Doesn't repeat what lint / gitleaks / semgrep already reported. Max 15 findings.
+
+### `fix-verifier`
+- VERIFY rounds only. Marks each FIXED finding VERIFIED or REOPENED from the remediation diff, flags regressions.
+- Escalates to a TARGETED round if a fix changed requirement-level behaviour.
 
 ### `performance-reviewer`
 - Algorithms: O(n²) lookups, repeated work in loops.
@@ -176,7 +202,7 @@ Round 1  FULL review ──► findings ──► ledger
 Remediation  fixes with TDD, answers questions, declines minors with reasons
    ▼
 Next round scope by highest severity fixed:  🔴 → FULL   🟠 → TARGETED   🟡/💡/❓ → VERIFY
-   (requirements + test coverage are checked in EVERY round)
+   (later rounds read only the remediation diff; build + tests run in EVERY round)
    ▼
 Exit when all criteria hold — or stop and ask you
 ```
@@ -190,6 +216,13 @@ Exit when all criteria hold — or stop and ask you
 | 💡 SUGGESTION | Optional improvement | Accepted or declined with reason |
 | ❓ QUESTION | Reviewer needs clarification | Answered (becomes a finding if it reveals a problem) |
 
+### Round cost
+| Scope | Reviewers | Reads |
+|---|---|---|
+| FULL | Same set as round 1 (by depth) | Whole change |
+| TARGETED | `requirements-verifier` + reviewers for the affected areas | Remediation diff |
+| VERIFY | `fix-verifier` (haiku) | Remediation diff + ledger |
+
 ### Roles
 - **Reviewers** — fresh subagents each round; raise findings, verify previous fixes (VERIFIED / REOPENED), never edit code.
 - **Author** — your session; fixes in order 🔴 → 🟠 → ❓ → 🟡 → 💡, bugs via a failing test first, commits as
@@ -197,12 +230,12 @@ Exit when all criteria hold — or stop and ask you
 
 ### Exit criteria
 - Build, full tests, lint green on the final commit.
-- Every requirement ✅ Done (no Missing / Partial / Wrong / Untested).
+- Latest requirements check: every requirement ✅ Done (no Missing / Partial / Wrong / Untested), no fix escalated since.
 - No open or reopened 🔴, 🟠 or ❓; every 🟡 verified or declined with a reason.
 - Every fix from the last remediation verified by a reviewer.
 
 ### When it stops and asks you
-- Max rounds reached (default 5).
+- Max rounds reached (default 3).
 - Same finding reopened twice.
 - Author disagrees with a 🔴/🟠 finding.
 - A question needs a product/business decision.
@@ -291,6 +324,27 @@ Installed version: `.claude/.eng-standards-version`. Without the plugin: `git cl
 CLI tools the security review uses when present: `gitleaks`, `semgrep`, `osv-scanner`, `gh` (PR numbers).
 OpenSpec: `npm install -g @fission-ai/openspec@latest && openspec init --tools claude`.
 Use one planning system per project: OpenSpec **or** superpowers, not both.
+
+---
+
+## Token usage
+
+Reviews are the expensive part: every reviewer subagent is a separate context. What's built in:
+
+| Lever | How |
+|---|---|
+| Fewer reviewers | Triage launches only what the diff needs; `quick` = 1 reviewer, `standard` = 2–3 |
+| Cheaper models | Reviewers on sonnet, fix verification on haiku; opus only with `--depth thorough` |
+| Read once | One review packet per round instead of each reviewer exploring the repo |
+| Tools before AI | Build/tests/lint/gitleaks/semgrep run first; reviewers don't repeat them |
+| Smaller re-reviews | Later rounds read only the remediation diff; max 3 rounds |
+| Small always-on cost | Review skills are manual-only; all descriptions are short |
+
+Your habits matter as much:
+- **`/clear` between tasks** — a long session re-sends its whole history on every request. Start each review in a fresh session.
+- **Disable skills/plugins you don't use** in `/plugin` — every enabled skill's description is sent on every request.
+- **Pick the depth on purpose:** `quick` for small fixes, `thorough` only for risky changes.
+- Check what a review cost with `/cost` (or the usage view) and compare depths.
 
 ---
 

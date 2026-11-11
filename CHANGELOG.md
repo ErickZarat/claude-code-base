@@ -3,6 +3,24 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [1.1.0] — 2026-11-10
+### Changed — token usage (reviews were ~79% of usage, driven by subagents)
+- Reviewer agents default to cheaper models: `requirements-verifier`, `performance-reviewer` → sonnet
+  (were opus); `thorough` depth escalates to opus per call.
+- `pr-review` now has depth modes chosen by triage: **quick** (1 reviewer), **standard** (2–3), **thorough** (full fan-out).
+  pr-review-toolkit agents only run in thorough.
+- Reviewers read one shared **review packet** (`scripts/review_packet.py`: diff, changed files, requirement sources,
+  triage) instead of exploring the repo independently.
+- Deterministic gates (build, tests, lint, gitleaks, semgrep) run before any reviewer; reviewers don't repeat them.
+- `review-cycle`: re-review rounds read only the remediation diff; VERIFY rounds use the new `fix-verifier` (haiku);
+  default max rounds 5 → 3; ledger carries state instead of pasted reports.
+- `pr-review`, `review-cycle` are manual-only (`disable-model-invocation`) and all skill descriptions shortened
+  (< 150 chars) — they're sent on every request.
+- Reviewer output is tables only, capped per reviewer.
+### Added
+- `code-reviewer` agent (quality + security + tests + architecture in one pass) and `fix-verifier` agent.
+- Installer gitignores review packets. Validator rejects opus/inherit agent defaults and long skill descriptions.
+
 ## [1.0.0] — 2026-11-10
 ### Added
 - Rules template: workflow (no vibe coding), code quality, architecture (ports & adapters), security, TDD testing,
