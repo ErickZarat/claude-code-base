@@ -51,7 +51,8 @@ def test_fresh_install_creates_rules_seeds_manifest_and_gitignore(plugin_copy, p
     assert (project / ".claude/.eng-standards-version").read_text().strip() == "1.2.0"
     gitignore = (project / ".gitignore").read_text().splitlines()
     assert "node_modules" in gitignore and ".env" in gitignore and "*.eng-new" in gitignore
-    assert ".reviews/*/packet.md" in gitignore and "openspec/changes/*/reviews/packet.md" in gitignore
+    assert ".reviews/*/packet.md" in gitignore and "openspec/changes/*/reviews/*/packet.md" in gitignore
+    assert (project / ".github/workflows/eng-pr-title.yml").is_file()
 
 
 def test_reinstall_is_idempotent(plugin_copy, project):

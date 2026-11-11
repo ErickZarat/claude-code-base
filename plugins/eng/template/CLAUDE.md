@@ -26,8 +26,9 @@ TODO: language + version, framework, database, messaging, build tool.
 TODO: where domain code, adapters, config, tests and migrations live.
 
 ## Planning workflow
-- If an `openspec/` folder exists: every non-trivial change goes through OpenSpec
-  (propose → review → apply → archive). Do not code ahead of an approved change.
+- If an `openspec/` folder exists: every non-trivial change goes through OpenSpec. Do not code ahead of an approved change:
+  `/opsx:propose` → approve → `/eng:epic` (GitHub epic + one ticket per task) → `/eng:task next` per ticket
+  (one branch + one PR each, DoD + review cycle on every PR) → merge → `/opsx:archive`.
 - Otherwise: use the `plan-change` skill before writing code for anything beyond a one-file fix.
 
 ## Non-negotiables (details in .claude/rules/)

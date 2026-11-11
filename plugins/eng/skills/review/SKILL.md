@@ -31,8 +31,8 @@ REOPENED, and increments its `Seen` count. A variant of the same problem (anothe
 is the same fingerprint, not a new finding.
 
 ## The ledger (single source of truth)
-Location: `openspec/changes/<change>/reviews/ledger.md` if an OpenSpec change is active, otherwise
-`.reviews/<branch-name>/ledger.md`. Create it in round 1; append every round; never delete history.
+Location: `openspec/changes/<change>/reviews/<branch-name>/ledger.md` if an OpenSpec change is active, otherwise
+`.reviews/<branch-name>/ledger.md` (one ledger per branch/PR, so per-task PRs never share one). Create it in round 1; append every round; never delete history.
 
 ```markdown
 # Review ledger — <change / PR> (base: <base>)

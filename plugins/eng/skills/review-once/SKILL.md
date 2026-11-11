@@ -16,7 +16,7 @@ are launched; deterministic tools run first; output is tables only.
 
 ## 1. Scope
 - PR number → `gh pr view <n> --json title,body,baseRefName,headRefName`; fetch/check out the head. Else base = given branch or `main`.
-- Packet dir: `.reviews/<branch>/` (or `openspec/changes/<change>/reviews/` when an OpenSpec change is active).
+- Packet dir: `.reviews/<branch>/` (or `openspec/changes/<change>/reviews/<branch>/` when an OpenSpec change is active).
 
 ## 2. Build the packet (once per round)
 ```

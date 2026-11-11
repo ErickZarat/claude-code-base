@@ -1,0 +1,26 @@
+# Installed by eng@claude-code-base. Every PR title must start with the ticket tag so squash-merge
+# commits on the default branch trace back to their GitHub issue: "[ISSUE-43] feat: ...".
+# Use "[NO-ISSUE] ..." for changes without a ticket. Dependency bots are exempt.
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  issue-tag:
+    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Title starts with [ISSUE-<number>] or [NO-ISSUE]
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}  # via env, never interpolated into the script
+        run: |
+          if printf '%s' "$PR_TITLE" | grep -Eq '^\[(ISSUE-[0-9]+|NO-ISSUE)\] [^ ]'; then
+            echo "PR title OK"
+          else
+            echo "::error::PR title must start with '[ISSUE-<number>] ' (or '[NO-ISSUE] '). Got: $PR_TITLE"
+            exit 1
+          fi
