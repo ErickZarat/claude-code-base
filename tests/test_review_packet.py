@@ -157,3 +157,41 @@ def test_thorough_minimum_is_respected(repo):
     commit_all(repo)
 
     assert "Suggested depth: thorough" in build_packet(repo)
+
+
+# --- v2.6.0: dynamic SQL candidates (possible SQL injection) ---------------------------------
+
+def dynamic_sql_section(packet: str) -> str:
+    return packet.split("## Dynamic SQL candidates")[1].split("\n## ")[0]
+
+
+def test_lists_sql_built_with_string_templates_or_concatenation(repo):
+    write(repo, "src/RefundRepository.kt", "\n".join([
+        "class RefundRepository(private val jdbc: Jdbc) {",
+        '    fun byId(id: String) = jdbc.query("SELECT * FROM refund WHERE id = $id")',
+        '    fun sorted(column: String) = jdbc.query("SELECT * FROM refund ORDER BY ${column}")',
+        '    fun byOrder(orderId: String) = jdbc.query("SELECT * FROM refund WHERE order_id = \'" + orderId + "\'")',
+        '    fun safe(id: String) = jdbc.query("SELECT * FROM refund WHERE id = ?", id)',
+        '    fun named(id: String) = jdbc.query("SELECT * FROM refund WHERE id = :id", mapOf("id" to id))',
+        "}",
+    ]) + "\n")
+    write(repo, "app/queries.py", 'cursor.execute(f"DELETE FROM refund WHERE id = {refund_id}")\n'
+                                   'cursor.execute("UPDATE refund SET state = %s WHERE id = %s" % (state, rid))\n'
+                                   'cursor.execute("SELECT * FROM refund WHERE id = %s", (rid,))\n')
+    commit_all(repo)
+
+    section = dynamic_sql_section(build_packet(repo))
+
+    assert "src/RefundRepository.kt:2" in section
+    assert "src/RefundRepository.kt:3" in section
+    assert "src/RefundRepository.kt:4" in section
+    assert "src/RefundRepository.kt:5" not in section and "src/RefundRepository.kt:6" not in section
+    assert "app/queries.py:1" in section and "app/queries.py:2" in section
+    assert "app/queries.py:3" not in section
+
+
+def test_no_dynamic_sql_says_none(repo):
+    write(repo, "src/A.kt", 'val greeting = "Hello $name"\n')
+    commit_all(repo)
+
+    assert "none found" in dynamic_sql_section(build_packet(repo))

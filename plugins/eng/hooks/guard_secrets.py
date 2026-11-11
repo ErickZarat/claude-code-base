@@ -22,6 +22,7 @@ from __future__ import annotations  # keeps type hints working on macOS's bundle
 import json
 import os
 import re
+import shlex
 import sys
 
 BLOCK_EXIT_CODE = 2
@@ -43,6 +44,9 @@ SECRET_FILE_NAME_PATTERNS = [
     re.compile(r"^service[-_]?account.*\.json$"),
 ]
 SECRET_DIRECTORY_NAMES = {".aws", ".ssh", ".gnupg", "secrets"}
+# Source code and docs inside a folder named e.g. "secrets" (a SecretService package) are not secrets themselves.
+SOURCE_CODE_EXTENSIONS = {".kt", ".kts", ".java", ".scala", ".groovy", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+                          ".py", ".go", ".rb", ".rs", ".cs", ".php", ".swift", ".md"}
 
 
 def is_secret_file(path: str) -> bool:
@@ -55,8 +59,18 @@ def is_secret_file(path: str) -> bool:
         return False  # .env.example, .env.example.bak, ... hold placeholders only
     if any(pattern.match(file_name) for pattern in SECRET_FILE_NAME_PATTERNS):
         return True
+    if os.path.splitext(file_name)[1] in SOURCE_CODE_EXTENSIONS:
+        return False
     path_parts = set(normalized_path.split(os.sep))
     return bool(path_parts & SECRET_DIRECTORY_NAMES)
+
+
+def is_secret_file_name(path: str) -> bool:
+    """File-name rules only (no folder rule) — for paths a command merely mentions without reading them."""
+    file_name = os.path.basename(os.path.normpath(path))
+    if any(file_name.startswith(template_name) for template_name in SAFE_ENV_TEMPLATE_NAMES):
+        return False
+    return any(pattern.match(file_name) for pattern in SECRET_FILE_NAME_PATTERNS)
 
 
 # --- 2. Content that looks like a real secret ------------------------------------------
@@ -158,14 +172,75 @@ DANGEROUS_COMMAND_PATTERNS = {
 }
 
 
+# Programs whose arguments are files they read, copy or send. Only their arguments are treated as file reads.
+FILE_READING_PROGRAMS = {
+    "cat", "less", "more", "head", "tail", "bat", "nl", "tac", "sort", "uniq", "cut", "awk", "sed", "jq", "yq",
+    "cp", "mv", "scp", "rsync", "base64", "xxd", "od", "hexdump", "strings", "source", ".", "openssl", "gpg",
+    "vim", "vi", "nano", "code", "diff", "zip", "tar",
+}
+# Search tools: the first non-option argument is a search pattern (a word), the rest are files.
+PATTERN_FIRST_PROGRAMS = {"grep", "egrep", "fgrep", "rg", "ag", "ack"}
+SHELL_OPERATORS = {";", "&&", "||", "|", "&", "(", ")", "<", ">", ">>", "<<", "|&", ";;"}
+
+
+def split_simple_commands(command: str) -> list[list[str]]:
+    """Split a shell command into simple commands (word lists). Falls back to whitespace splitting."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:  # unbalanced quotes
+        tokens = command.split()
+    commands, current, read_next = [], [], False
+    for token in tokens:
+        if token in SHELL_OPERATORS:
+            if token == "<":  # input redirection: the next word is a file being read
+                read_next = True
+                continue
+            if current:
+                commands.append(current)
+            current = []
+            continue
+        if read_next:
+            commands.append(["cat", token])
+            read_next = False
+            continue
+        current.append(token)
+    if current:
+        commands.append(current)
+    return commands
+
+
+def looks_like_path(token: str) -> bool:
+    return "/" in token or token.startswith((".", "~", "@"))
+
+
+def secret_file_read_by(words: list[str]) -> str | None:
+    """Return the secret file a simple command reads (or references by path), if any."""
+    words = [word for word in words if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", word)] or words  # drop VAR=value
+    program = os.path.basename(words[0])
+    arguments = [word for word in words[1:] if not word.startswith("-")]
+    if program in PATTERN_FIRST_PROGRAMS:
+        arguments = arguments[1:]  # skip the search pattern
+        return next((argument for argument in arguments if is_secret_file(argument)), None)
+    if program in FILE_READING_PROGRAMS:
+        return next((argument for argument in arguments if is_secret_file(argument.lstrip("@"))), None)
+    for argument in arguments:
+        candidate = argument.split(":")[-1].lstrip("@")  # git show HEAD:.env, curl -d @.env
+        if looks_like_path(candidate) and is_secret_file_name(candidate):
+            return argument
+    return None
+
+
 def find_dangerous_command(command: str) -> str | None:
-    """Return a reason if the shell command is dangerous or touches secret files."""
+    """Return a reason if the shell command is dangerous or reads secret files."""
     for reason, pattern in DANGEROUS_COMMAND_PATTERNS.items():
         if pattern.search(command):
             return reason
-    for token in re.split(r"[\s;&|<>()'\"=]+", command):
-        if is_secret_file(token):
-            return f"references secret file '{token}'"
+    for words in split_simple_commands(command):
+        secret_file = secret_file_read_by(words)
+        if secret_file:
+            return f"reads secret file '{secret_file}'"
     return None
 
 

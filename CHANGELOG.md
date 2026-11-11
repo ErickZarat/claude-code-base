@@ -3,6 +3,26 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.6.0] — 2026-11-11
+### Fixed — secret guard false positives (reported from a project review: "key", "credentials", "secrets")
+- Shell commands are parsed into program + arguments. Only arguments of programs that read file contents (`cat`,
+  `less`, `cp`, `base64`, `source`, grep's file arguments, `< file`…) count as file reads; other commands are only
+  checked for explicit secret file paths. `grep -rn "credentials" src/`, `kubectl get secrets`, `--set auth.key=…`,
+  commit messages mentioning keys are allowed; `cat .env`, `cat ~/.aws/credentials`, `less server.key`,
+  `base64 k8s/secrets/db.yaml` stay blocked.
+- Source code inside a folder named `secrets/` (e.g. `com/acme/secrets/SecretService.kt`) is no longer treated as a
+  secret file. Template `settings.json` drops the matching `Read(**/secrets/**)` deny rule — **existing projects:
+  remove that line from `.claude/settings.json` by hand** (settings are project-owned and never overwritten).
+
+### Added — SQL injection
+- Review packet lists **Dynamic SQL candidates**: added lines that splice values into SQL (Kotlin/JS templates,
+  concatenation, f-strings, `%`, `.format`, `sprintf`), with file:line.
+- `security-reviewer` and `code-reviewer` (quick mode) have a concrete SQL injection checklist: bound parameters only,
+  allowlisted identifiers (ORDER BY/columns/tables), LIKE escaping, IN lists, native-query escape hatches (JPA native,
+  JdbcTemplate, jOOQ `DSL.field(String)`, Exposed `exec`, MyBatis `${}`, raw ClickHouse/Timescale SQL), stored
+  procedures with dynamic SQL, second-order injection. Unparameterized value → BLK. Coverage test enforces it.
+- Rules `security.md` and `lang/kotlin-jvm.md`: no string templates in SQL, allowlisted identifiers, LIKE escaping.
+
 ## [2.5.0] — 2026-11-11
 ### Changed — every review runs every dedicated reviewer again (as in 1.0)
 - Default depth is `standard` for every PR, small ones included: `requirements-verifier`, `performance-reviewer`,

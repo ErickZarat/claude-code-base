@@ -19,7 +19,10 @@ If a tool is not installed, say so and continue with the manual checklist. Never
 - [ ] No reads/prints/logs of `.env` or secret values. New config keys documented in `.env.example` with placeholders.
 - [ ] No backdoors: hidden users, default passwords, magic headers/params, debug/admin endpoints, auth bypass flags.
 - [ ] No disabled security controls (TLS verification, CSRF, CORS `*` with credentials, auth middleware).
-- [ ] All external input validated at the boundary; SQL parameterized; no shell interpolation; no unsafe deserialization.
+- [ ] All external input validated at the boundary; no shell interpolation; no unsafe deserialization.
+- [ ] Every query uses bound parameters — no string templates/concatenation/f-strings in SQL (native queries
+      included); ORDER BY / column / table names from an allowlist; LIKE wildcards escaped. Check the review packet's
+      "Dynamic SQL candidates" (`review_packet.py`) if one was built.
 - [ ] Authorization checked per resource on the server side.
 - [ ] Errors to clients are generic; logs contain no secrets or full PII.
 - [ ] New dependencies exist, are maintained, pinned, and justified.

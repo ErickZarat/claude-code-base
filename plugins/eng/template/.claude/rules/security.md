@@ -17,7 +17,9 @@
 
 ## Input and output
 - Treat all external input as untrusted: validate type, length, format and range at the boundary.
-- SQL: parameterized queries / ORM bindings only. Never build queries with string concatenation.
+- SQL: bound parameters / ORM bindings only. Never splice values into SQL via concatenation, string templates
+  (`"$id"`, `"${x}"`), f-strings or format functions — native queries included. Identifiers that can't be bound
+  (ORDER BY, column/table names) come from an allowlist. Escape LIKE wildcards from input.
 - Shell/OS commands: avoid; if unavoidable, pass arguments as arrays, never interpolate user input.
 - Output encoding for HTML/JS contexts; no `innerHTML`/`eval`/`dangerouslySetInnerHTML` with untrusted data.
 - File paths from users are normalized and confined to an allowed directory (no path traversal).

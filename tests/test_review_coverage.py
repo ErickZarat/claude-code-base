@@ -110,3 +110,14 @@ def test_dedicated_security_reviewer_covers_the_full_checklist():
 def test_quick_is_never_chosen_automatically():
     text = REVIEW_ONCE.read_text()
     assert "only when the user explicitly asks" in text.lower()
+
+
+SQL_INJECTION_TOPICS = ["dynamic sql candidates", "bound parameters", "string templates", "order by", "allowlist",
+                        "native queries", "like", "stored procedures"]
+
+
+@pytest.mark.parametrize("agent", ["security-reviewer", "code-reviewer"])
+def test_sql_injection_is_checked_concretely(agent):
+    text = (AGENTS / f"{agent}.md").read_text().lower()
+    missing = [topic for topic in SQL_INJECTION_TOPICS if topic not in text]
+    assert missing == [], f"{agent} SQL injection check is missing: {missing}"

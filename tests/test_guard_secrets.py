@@ -158,3 +158,53 @@ def test_block_message_shows_which_line_with_value_redacted():
     assert "line 3" in result.stderr
     assert "val url" in result.stderr
     assert "pass@" not in result.stderr  # the secret itself is never echoed
+
+
+# --- v2.6.0: shell words are not file reads (reported false positives: "key", "credentials", "secrets") -----
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'grep -rn "credentials" src/',
+        "rg -i secrets docs/",
+        "kubectl get secrets -n app",
+        "helm upgrade app ./chart --set auth.key=abc",
+        'grep -rn "api.key" src',
+        "ls src/main/kotlin/com/acme/secrets/",
+        'git commit -m "[ISSUE-4] fix: rotate signing key and credentials handling"',
+        "./gradlew test --tests '*SecretsServiceTest*'",
+    ],
+)
+def test_ordinary_words_in_shell_commands_are_allowed(command):
+    result = run_hook("Bash", {"command": command})
+    assert result.returncode == ALLOWED_EXIT_CODE, result.stderr
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat .env",
+        "grep password .env",
+        "cat ~/.aws/credentials",
+        "less config/server.key",
+        "cp .env /tmp/copy",
+        "source .env.production",
+        "cat credentials",
+        "base64 k8s/secrets/db.yaml",
+        "head -n 5 ./signing.key",
+        "cat id_rsa",
+    ],
+)
+def test_reading_real_secret_files_is_still_blocked(command):
+    result = run_hook("Bash", {"command": command})
+    assert result.returncode == BLOCKED_EXIT_CODE
+    assert "secret file" in result.stderr
+
+
+def test_source_code_inside_a_secrets_package_is_not_a_secret_file():
+    path = "/repo/src/main/kotlin/com/acme/secrets/SecretRotationService.kt"
+    assert run_hook("Read", {"file_path": path}).returncode == ALLOWED_EXIT_CODE
+
+
+def test_data_files_inside_a_secrets_folder_are_still_blocked():
+    assert run_hook("Read", {"file_path": "/repo/k8s/secrets/db.yaml"}).returncode == BLOCKED_EXIT_CODE

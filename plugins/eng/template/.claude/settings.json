@@ -22,7 +22,6 @@
       "Read(**/.env.staging)",
       "Read(**/.env.production)",
       "Read(**/.env.test)",
-      "Read(**/secrets/**)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
       "Read(**/*.p12)",

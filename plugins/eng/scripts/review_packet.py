@@ -37,6 +37,15 @@ SECURITY_CODE_PATTERN = re.compile(
     r"trustAll|@PreAuthorize|@Secured|request\.(params|query|body))"
 )
 REQUIREMENT_PLAN_GLOB = "docs/plans/*.md"
+SQL_STATEMENT = re.compile(
+    r"(?i)\b(select\s.+\sfrom|insert\s+into|update\s+\w+\s+set|delete\s+from|\bwhere\s|order\s+by|group\s+by|values\s*\()"
+)
+# Values spliced into a string: Kotlin/JS/Groovy templates, concatenation, Python f-strings / % / format, printf-style.
+STRING_SPLICING = re.compile(
+    r"""\$\{|\$[A-Za-z_]|["']\s*\+|\+\s*["']|\bf["']|%\s*\(|%\s*[A-Za-z_]\w*\s*$|\.format\(|String\.format|sprintf|Sprintf"""
+)
+MAX_SQL_PREVIEW_LENGTH = 120
+HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 DEPTH_ORDER = ("quick", "standard", "thorough")
 MINIMUM_DEPTH_LINE = re.compile(r"^\s*Minimum review depth:\s*(quick|standard|thorough)\b", re.IGNORECASE | re.MULTILINE)
 
@@ -51,6 +60,32 @@ def changed_files(diff_range: str) -> list[str]:
 
 def added_lines(unified_diff: str) -> list[str]:
     return [line[1:] for line in unified_diff.splitlines() if line.startswith("+") and not line.startswith("+++")]
+
+
+def added_lines_with_location(unified_diff: str) -> list[tuple[str, int, str]]:
+    """(file, new line number, text) for every added line in a unified diff."""
+    located, current_file, line_number = [], "", 0
+    for line in unified_diff.splitlines():
+        if line.startswith("+++ "):
+            current_file = line[6:] if line.startswith("+++ b/") else line[4:]
+        elif line.startswith("@@"):
+            header = HUNK_HEADER.match(line)
+            line_number = int(header.group(1)) if header else 0
+        elif line.startswith("+"):
+            located.append((current_file, line_number, line[1:]))
+            line_number += 1
+        elif not line.startswith("-") and not line.startswith("\\"):
+            line_number += 1
+    return located
+
+
+def dynamic_sql_candidates(unified_diff: str) -> list[str]:
+    """Added lines that build SQL by splicing values into strings — each one is a possible SQL injection."""
+    return [
+        f"- `{path}:{number}` — `{text.strip()[:MAX_SQL_PREVIEW_LENGTH]}`"
+        for path, number, text in added_lines_with_location(unified_diff)
+        if SQL_STATEMENT.search(text) and STRING_SPLICING.search(text)
+    ]
 
 
 def count_changed_lines(diff_range: str) -> int:
@@ -123,6 +158,11 @@ def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
         "Focus hints for reviewers (every reviewer still runs and checks everything):",
         f"- performance focus: {'yes' if performance_needed else 'no'}",
         f"- security focus: {'yes' if security_needed else 'no'}",
+        "",
+        "## Dynamic SQL candidates",
+        "Added lines that build SQL by splicing values into strings. Each must use bound parameters, or an allowlist",
+        "for identifiers (ORDER BY / column / table names) — otherwise it is a SQL injection (BLK).",
+        *(dynamic_sql_candidates(unified_diff) or ["- none found"]),
         "",
         "## Requirement sources",
         *(f"- {source}" for source in sources),

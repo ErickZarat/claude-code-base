@@ -20,9 +20,22 @@ Open other files only to follow data flow (where input comes from, where it ends
   auth bypass flags, code paths that skip checks "for testing".
 - **Disabled controls** — TLS verification off, CSRF off, CORS `*` with credentials, auth middleware removed or
   bypassed, security headers dropped.
-- **Input handling** — unvalidated input at boundaries (API, messaging, files, CLI); SQL/NoSQL/LDAP/shell injection;
-  path traversal; unsafe deserialization; XSS (`innerHTML`, template escaping off); SSRF (user-controlled URLs);
-  open redirects.
+- **Input handling** — unvalidated input at boundaries (API, messaging, files, CLI); NoSQL/LDAP/shell/template
+  injection; path traversal; unsafe deserialization; XSS (`innerHTML`, template escaping off); SSRF (user-controlled
+  URLs); open redirects.
+- **SQL injection — check every query the diff adds or changes, starting with the packet's "Dynamic SQL candidates":**
+  - Values reach SQL only as bound parameters (`?`, `:name`, `$1`, ORM/query-builder bindings) — never through
+    string templates (`"... $id"`, `"... ${x}"`), concatenation, f-strings, `%`/`.format`/`String.format`/`sprintf`.
+  - Identifiers that can't be bound (ORDER BY / sort direction, column, table, schema names) come from an allowlist
+    or enum mapping, never straight from input.
+  - LIKE patterns escape `%`/`_` from input; IN lists bind each element (no joined strings).
+  - Native queries and raw-SQL escape hatches: JPA `@Query(nativeQuery = true)` / `createNativeQuery`, Spring
+    `JdbcTemplate`, jOOQ `DSL.field/condition(String)`, Exposed `exec(...)`, MyBatis `${}`, Hibernate HQL built from
+    strings, ClickHouse/Timescale queries sent as raw strings over HTTP/JDBC.
+  - Stored procedures and dynamic SQL inside the database (`EXECUTE`, `sp_executesql`) concatenating arguments.
+  - Second-order injection: values read back from the DB or another service and then spliced into SQL.
+  - Missing input validation is not a fix: the query itself must be parameterized.
+  Any value reaching SQL unparameterized → BLK, even if "the input is trusted today".
 - **AuthN / AuthZ** — missing server-side authorization per resource (IDOR), privilege escalation, broken session or
   token handling (expiry, signature verification, algorithm `none`).
 - **Data exposure** — client errors that are not a generic error response (stack traces, SQL, internals), over-broad
