@@ -3,6 +3,13 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.2.0] — 2026-11-11
+### Changed
+- Review finding IDs carry their type/severity: `R<round>-<code>-<n>` with codes `BLK` (blocker), `MAJ` (major),
+  `MIN` (minor), `S` (suggestion), `Q` (question) — e.g. `R1-MAJ-29`, `R1-Q-29`, `R1-S-29`. One running number per
+  ledger; when severity/type changes the old ID is `SUPERSEDED → <new ID>`. Existing ledgers keep their old IDs.
+- Review remediation commits start with the ticket tag: `[ISSUE-44] fix(review): R1-BLK-1 …`.
+
 ## [2.1.0] — 2026-11-11
 ### Changed
 - `/eng:epic` defaults to **milestone tracking**: one milestone per OpenSpec change plus a `change:<name>` label on

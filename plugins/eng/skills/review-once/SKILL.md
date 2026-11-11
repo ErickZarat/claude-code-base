@@ -58,7 +58,8 @@ Reviewers: <list> · false positives dropped: <n>
 
 ## Requirements            (requirements-verifier table, or code-reviewer's check in quick mode)
 ## Previous findings       | ID | Was | Now | Note |          (if ledger)
-## New findings            | ID | Sev | Area | Location | Finding | Fix |
+## New findings            | ID | Area | Location | Finding | Fix |
+IDs: `R<round>-<BLK|MAJ|MIN|Q|S>-<n>`, numbered after the ledger's highest number (see the review skill).
 ```
 Verdict: any 🔴/🟠 open or ❓ unanswered → REQUEST CHANGES · only 🟡/💡 → APPROVE WITH COMMENTS · none → APPROVE.
 

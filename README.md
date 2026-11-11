@@ -333,7 +333,7 @@ Exit when all criteria hold — or stop and ask you
 ### Roles
 - **Reviewers** — fresh subagents each round; raise findings, verify previous fixes (VERIFIED / REOPENED), never edit code.
 - **Author** — your session; fixes in order 🔴 → 🟠 → ❓ → 🟡 → 💡, bugs via a failing test first, commits as
-  `fix(review): R1-3 …`. It cannot verify its own fixes.
+  `[ISSUE-44] fix(review): R1-MAJ-3 …`. It cannot verify its own fixes.
 
 ### Exit criteria
 - Build, full tests, lint green on the final commit.
@@ -351,8 +351,22 @@ Exit when all criteria hold — or stop and ask you
 
 ### The ledger
 `openspec/changes/<change>/reviews/<branch>/ledger.md` (OpenSpec) or `.reviews/<branch>/ledger.md`. One table per round with
-stable IDs (`R1-3`), a fingerprint and `Seen` count per finding, and statuses
-`OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED`. Commit it as the PR's
+stable IDs, a fingerprint and `Seen` count per finding, and statuses
+`OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED · SUPERSEDED → <ID>`.
+
+### Finding IDs
+`R<round>-<code>-<n>` — round raised, type/severity code, running number (unique per ledger):
+
+| Code | Meaning | Example |
+|---|---|---|
+| `BLK` | 🔴 Blocker | `R1-BLK-3` |
+| `MAJ` | 🟠 Major | `R1-MAJ-7` |
+| `MIN` | 🟡 Minor | `R2-MIN-12` |
+| `S` | 💡 Suggestion | `R1-S-9` |
+| `Q` | ❓ Question | `R1-Q-4` |
+
+IDs never change; if a finding's severity or type changes (a question reveals a bug), the old ID is marked
+`SUPERSEDED → R2-MAJ-15` and the new one carries the history. Commits reference the ID after the ticket tag. Commit it as the PR's
 audit trail, or add `.reviews/` to `.gitignore`.
 
 ### Final report

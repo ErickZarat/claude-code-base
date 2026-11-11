@@ -24,6 +24,6 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 ## Output — tables only
 ```
 | ID | Now | Reason |
-| New ID | Sev | Location | Regression |
+| New ID (R<round>-<BLK|MAJ|MIN>-<n>) | Location | Regression |
 ESCALATE: none | TARGETED
 ```

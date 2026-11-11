@@ -30,6 +30,7 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 ## Output — table only
 ```
 | Sev | Area | Location | Finding | Fix |
+Sev codes: BLK · MAJ · MIN · S · Q — the caller turns them into IDs `R<round>-<code>-<n>`.
 Sev: 🔴 BLOCKER · 🟠 MAJOR · 🟡 MINOR · 💡 SUGGESTION · ❓ QUESTION   (scale defined in the review skill)
 Exploitable security issue or leaked secret = 🔴. Untested new behaviour = 🔴.
 ```

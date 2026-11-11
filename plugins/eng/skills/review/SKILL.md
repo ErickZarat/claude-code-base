@@ -14,15 +14,22 @@ Two roles, never mixed:
 
 ## Severity and finding types
 
-| Severity | Meaning | Must be resolved to exit? |
-|----------|---------|---------------------------|
-| 🔴 BLOCKER | Broken build/tests, missing or wrong requirement, **missing tests for a requirement**, TDD not followed, security vulnerability, leaked secret, data loss risk | Yes — fixed |
-| 🟠 MAJOR | Bug in an edge case, serious performance problem at expected scale, broken architecture rule (concrete dependency in domain, duplicated logic), silent failure | Yes — fixed |
-| 🟡 MINOR | Naming, comments, small inefficiency, missing edge-case test for non-critical path | Yes — fixed OR declined with a written reason |
-| 💡 SUGGESTION | Optional improvement / alternative approach | No — accept or decline with reason |
-| ❓ QUESTION | Reviewer needs clarification; may hide a bug | Yes — answered (and converted to a finding if the answer reveals a problem) |
+| Severity | Code | Meaning | Must be resolved to exit? |
+|----------|------|---------|---------------------------|
+| 🔴 BLOCKER | `BLK` | Broken build/tests, missing or wrong requirement, **missing tests for a requirement**, TDD not followed, security vulnerability, leaked secret, data loss risk | Yes — fixed |
+| 🟠 MAJOR | `MAJ` | Bug in an edge case, serious performance problem at expected scale, broken architecture rule (concrete dependency in domain, duplicated logic), silent failure | Yes — fixed |
+| 🟡 MINOR | `MIN` | Naming, comments, small inefficiency, missing edge-case test for non-critical path | Yes — fixed OR declined with a written reason |
+| 💡 SUGGESTION | `S` | Optional improvement / alternative approach | No — accept or decline with reason |
+| ❓ QUESTION | `Q` | Reviewer needs clarification; may hide a bug | Yes — answered (and converted to a finding if the answer reveals a problem) |
 
-Finding IDs are stable across rounds: `R<round>-<n>` (e.g. `R1-3`). Never renumber.
+### Finding IDs: `R<round>-<code>-<n>`
+- `R1-BLK-3`, `R1-MAJ-7`, `R2-MIN-12`, `R1-Q-4`, `R1-S-9` — round raised · code from the table · number.
+- `<n>` is one running counter per ledger across all codes, so the number alone is unique (`R1-BLK-3` and `R1-Q-3`
+  never both exist).
+- IDs never change. If a finding's severity or type changes (a question reveals a bug, a MINOR turns out MAJOR),
+  mark the old row `SUPERSEDED → <new ID>` and raise a new ID with the new code, e.g. `R1-Q-4` → `R2-MAJ-15`.
+  Its fingerprint and `Seen` count carry over.
+- Use the full ID everywhere: ledger, reports, PR comments, commit messages.
 
 **Recurrence tracking (prevents loops).** Each finding has a *fingerprint*: `<file or component> · <problem class>`
 (e.g. `DatabaseConfig · credential leak in JDBC URL`). Before adding a finding, match it against EVERY ledger row,
@@ -38,13 +45,16 @@ Location: `openspec/changes/<change>/reviews/<branch-name>/ledger.md` if an Open
 # Review ledger — <change / PR> (base: <base>)
 
 ## Round 1 — <date> — scope: FULL — verdict: REQUEST CHANGES
-| ID | Sev | Type | Area | Fingerprint | Location | Finding | Seen | Status | Resolution |
-|----|-----|------|------|----------|---------|--------|------------|
-| R1-1 | 🔴 | issue | requirements | — | R3 "refund over limit returns 422" has no test | VERIFIED | test `rejects refund above limit` + fix (abc123) |
-| R1-2 | 🟡 | suggestion | quality | Foo.kt:42 | rename `proc` | DECLINED | public API, rename in separate change |
-| R1-3 | ❓ | question | perf | Repo.kt:88 | expected row count? | ANSWERED | ≤ 5k per tenant (spec §2) |
+| ID | Fingerprint | Area | Location | Finding | Seen | Status | Resolution |
+|----|-------------|------|----------|---------|------|--------|------------|
+| R1-BLK-1 | RefundService · missing test for requirement | requirements | — | R3 "refund over limit returns 422" has no test | 1 | VERIFIED | test `rejects refund above limit` + fix (abc123) |
+| R1-MIN-2 | Foo · unclear name | quality | Foo.kt:42 | rename `proc` | 1 | DECLINED | public API, rename in separate change |
+| R1-Q-3 | RefundRepository · unbounded query | perf | Repo.kt:88 | expected row count per tenant? | 1 | SUPERSEDED → R2-MAJ-4 | answer: unbounded — needs pagination |
 
-Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) · DECLINED · ANSWERED
+## Round 2 — <date> — scope: TARGETED — verdict: APPROVE
+| R2-MAJ-4 | RefundRepository · unbounded query | perf | Repo.kt:88 | findAll loads every refund | 1 | VERIFIED | paginated, test `pages refunds` (def456) |
+
+Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) · DECLINED · ANSWERED · SUPERSEDED → <ID>
 ```
 
 ## Loop
@@ -66,7 +76,7 @@ Work through findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGG
   If the answer reveals a problem, convert it into a new finding with a severity.
 - **Minor / suggestions:** fix, or DECLINE with a concrete reason (scope, trade-off, conflicts with spec). No silent ignores.
 - **Disagreement on a BLOCKER/MAJOR:** do not decline it yourself — write your reasoning in the ledger and ask the user to decide.
-- Commit per finding or per logical group: `fix(review): R1-1 add refund limit test and validation`.
+- Commit per finding or per logical group, ticket tag first: `[ISSUE-44] fix(review): R1-BLK-1 add refund limit test and validation`.
 - Run the gates (build, tests, lint) after remediation. Mark items FIXED with commit refs.
 
 ### Choose the next round's scope
