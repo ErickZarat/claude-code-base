@@ -9,6 +9,7 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 - [Daily workflow](#daily-workflow)
 - [Ticket tracking](#ticket-tracking)
 - [Working as a team](#working-as-a-team)
+- [Getting it right the first time](#getting-it-right-the-first-time)
 - [Spec-driven extras (on top of OpenSpec)](#spec-driven-extras-on-top-of-openspec)
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
@@ -191,6 +192,21 @@ A merges #43 → B's stacked PR retargets to main; #44 becomes ready for whoever
 ```
 Outside the plugin: branch protection with **1 required approval** (each dev reviews the other's PR after the AI review
 cycle) and the `PR title`, `PR checklist` and `API contracts` checks as required.
+
+---
+
+## Getting it right the first time
+
+Reviews stay strict; the writing side applies the same standard *before* the PR, so review rounds (4+ reviewers
+each) come back mostly clean — fewer rounds is where the tokens are saved.
+
+| Step | When | What it does |
+|---|---|---|
+| **Task plan** | `/eng:task`, before the first test | 10–15 lines: files, existing code to reuse, reference pattern, ports, tests in TDD order incl. edge/failure cases, NFR targets, open questions. Design-level MAJORs are avoided here |
+| **Reference patterns** | CLAUDE.md *Patterns* (filled by `/eng:bootstrap`) | Canonical files in your repo to copy: paginated repository, validated controller, adapter with timeout, good test |
+| **Static analysis** | `/eng:bootstrap` sets it up; every build runs it | detekt/ktlint, ESLint strict, ruff, semgrep packs — mechanical minors fail the build during TDD instead of costing a review round |
+| **Self-check** | `self-check` skill, run by `/eng:dod` before the PR | Gates, then the author walks the diff with `checklists/self-check.md` — the **same checklist the reviewers use** (a test keeps them in sync). Same session, no extra agents |
+| **Measure** | `/eng:retro` | Average rounds per PR, clean first rounds, first-round findings per 100 changed lines; recurring lintable findings become lint/semgrep rules |
 
 ---
 

@@ -10,6 +10,8 @@
 - A choice between real alternatives, or an architecture change, gets a decision record (`decision` skill).
 
 ## While writing code
+- Working a ticket: write the short task plan first (files, reuse, ports, tests in TDD order incl. edge cases,
+  NFR targets, open questions) — see `/eng:task`.
 - Follow TDD (`tdd` skill): a failing test exists before any production logic is written.
 - Work in small, reviewable steps. One concern per change.
 - Change only what the task needs. No drive-by refactors, renames or reformatting of unrelated code;
@@ -24,7 +26,8 @@
 
 ## After writing code
 - Run the project's build, tests and linter (commands in CLAUDE.md). Report real output, not assumptions.
-- Run the `dod` skill before saying the task is complete.
+- Run the `dod` skill before saying the task is complete — it includes the `self-check` (the reviewers' checklist on
+  your own diff). Fix what it finds before asking for review.
 - Summarize: what changed, why, how it was verified, and any follow-ups or risks.
 
 ## Git

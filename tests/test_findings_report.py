@@ -55,3 +55,34 @@ def test_threshold_is_configurable(tmp_path):
     ledger(tmp_path, ".reviews/b/ledger.md", [row("R1-MAJ-1", "B · missing timeout")])
     assert "missing timeout" not in run(tmp_path).split("Recurring")[1]
     assert "missing timeout" in run(tmp_path, "--min", "2").split("Recurring")[1]
+
+
+# --- v2.10: metrics to see whether development gets it right the first time ---------------------
+
+def write_ledger(root, relative, text):
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+def test_reports_rounds_and_findings_per_100_changed_lines(tmp_path):
+    write_ledger(tmp_path, ".reviews/task-1/ledger.md",
+                 "## Round 1 — 2026-11-11 — scope: FULL — changed lines: 200 — verdict: REQUEST CHANGES\n" + HEADER
+                 + row("R1-MAJ-1", "A · x") + "\n" + row("R1-MIN-2", "B · y", "quality") + "\n"
+                 + "## Round 2 — 2026-11-11 — scope: VERIFY — changed lines: 20 — verdict: APPROVE\n" + HEADER
+                 + row("R2-MIN-3", "C · z", "quality") + "\n")
+    write_ledger(tmp_path, ".reviews/task-2/ledger.md",
+                 "## Round 1 — 2026-11-12 — scope: FULL — changed lines: 100 — verdict: APPROVE\n" + HEADER)
+
+    report = run(tmp_path)
+
+    assert "PRs reviewed: 2" in report
+    assert "average rounds per PR: 1.5" in report
+    assert "first-round findings per 100 changed lines: 0.7" in report  # 2 findings / 300 lines
+    assert "clean first round: 1 of 2" in report
+
+
+def test_ledgers_without_line_counts_still_report_rounds(tmp_path):
+    ledger(tmp_path, ".reviews/a/ledger.md", [row("R1-MAJ-1", "A · x")])
+    report = run(tmp_path)
+    assert "PRs reviewed: 1" in report and "per 100 changed lines: n/a" in report

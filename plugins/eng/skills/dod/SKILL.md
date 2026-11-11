@@ -13,21 +13,15 @@ A task is NOT done until every item below passes or is explicitly reported as fa
 - [ ] Linter/formatter/type-checker clean for changed files.
 Paste the real result (pass/fail counts or the error), not "should work".
 
-## 2. Review the diff (`git diff`, `git status`)
-- [ ] Only files related to the task changed. No stray debug code, `println`/`console.log`, commented-out code, or TODO stubs.
-- [ ] No duplicated logic — `reuse-first` decisions were applied.
-- [ ] External dependencies sit behind interfaces — `interface-first-design` applied where relevant.
-- [ ] Names are descriptive; comments explain why; public APIs have doc comments.
-- [ ] Errors handled with context; inputs validated at boundaries; no swallowed exceptions.
+## 2. Self-check
+- [ ] Run the `self-check` skill (the reviewers' checklist applied to your own diff) and fix everything it finds.
 - [ ] TDD was followed: every new behaviour has a test that was seen failing before the code existed.
-- [ ] Tests cover the new behaviour and its edge cases; no tests were skipped, deleted or weakened.
-- [ ] Tests for OpenSpec scenarios carry `spec: <capability>/<scenario>` markers (`trace.py --change <change>` shows them).
-- [ ] Significant design choices recorded in `docs/decisions/` (`decision` skill); API contract changes backwards compatible or versioned.
-- [ ] Every requirement / OpenSpec scenario / plan step is implemented (for features, run the `requirements-verifier` agent).
+- [ ] Every requirement / acceptance criterion is implemented and tested (for OpenSpec scenarios: `spec:` markers).
 - [ ] Docs/README/`.env.example`/OpenSpec specs updated if behaviour or configuration changed.
 
 ## 3. Security
-- [ ] Run the `secure-self-review` skill and fix HIGH/CRITICAL findings.
+Covered by the self-check (its gates run gitleaks/semgrep; its Security section is the secure-self-review checklist).
+Run the full `secure-self-review` skill only when the change touches auth, secrets, crypto or payment flows.
 
 ## 4. Summary to the user
 ```

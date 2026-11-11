@@ -44,7 +44,7 @@ Location: `openspec/changes/<change>/reviews/<branch-name>/ledger.md` if an Open
 ```markdown
 # Review ledger — <change / PR> (base: <base>)
 
-## Round 1 — <date> — scope: FULL — verdict: REQUEST CHANGES
+## Round 1 — <date> — scope: FULL — changed lines: <from the packet> — verdict: REQUEST CHANGES
 | ID | Fingerprint | Area | Location | Finding | Seen | Status | Resolution |
 |----|-------------|------|----------|---------|------|--------|------------|
 | R1-BLK-1 | RefundService · missing test for requirement | requirements | — | R3 "refund over limit returns 422" has no test | 1 | VERIFIED | test `rejects refund above limit` + fix (abc123) |
@@ -66,7 +66,8 @@ Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) 
 2. Reviewers must: (a) verify every FIXED item → VERIFIED or REOPENED (with reason), (b) check for regressions
    introduced by the fixes, (c) raise new findings with severity, (d) NOT re-raise DECLINED/ANSWERED items
    unless the code changed in a way that makes them relevant again.
-3. Append the round's table to the ledger. If exit criteria are met → go to **Exit**.
+3. Append the round's table to the ledger, under a header `## Round <N> — <date> — scope: <S> — changed lines: <from the packet> — verdict: <V>`
+   (`/eng:retro` uses it to measure first-round quality). If exit criteria are met → go to **Exit**.
 
 ### Round N — Checkpoint (mandatory unless the user passed `--auto`)
 **Never start remediation on your own.** After every review round:

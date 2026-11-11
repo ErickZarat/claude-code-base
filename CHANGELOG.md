@@ -3,6 +3,20 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.10.0] — 2026-11-11
+### Added — get it right the first time (fewer review rounds, fewer tokens)
+- `checklists/self-check.md`: the reviewers' checklist for authors; `tests/test_review_coverage.py` keeps it in sync
+  with every review topic (incl. SQL injection details).
+- `self-check` skill: gates → packet hints (dynamic SQL, contracts) → walk the own diff against the checklist → fix.
+  `/eng:dod` runs it (and no longer duplicates the security checklist).
+- `/eng:task` **plan step** before the first test: files, reuse, reference pattern, ports, tests incl. edge cases,
+  NFR targets, open questions.
+- `/eng:bootstrap`: static analysis setup (detekt/ktlint, ESLint strict, ruff, semgrep packs) and a *Patterns*
+  section in CLAUDE.md with canonical files to copy.
+- `/eng:retro`: first-time-quality metrics (rounds per PR, clean first rounds, first-round findings per 100 changed
+  lines); suggests lint/semgrep rules for lintable recurring findings. Ledger round headers record `changed lines`.
+Reviewers are unchanged (as strict as before).
+
 ## [2.9.0] — 2026-11-11
 ### Added — working as a team
 - **Spec-time dependencies:** `/eng:spec` reviews task dependencies (what must be merged first) and the lint prints a

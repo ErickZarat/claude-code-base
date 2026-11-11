@@ -34,10 +34,25 @@ Ask the user: "Use OpenSpec for this project?"
   and annotated, PR-sized tasks.
 - No: the `plan-change` skill is the planning workflow.
 
-## 5. Safety net
+## 5. Static analysis (so mechanical issues fail the build, not a review)
+Propose, show the diff, and apply after the user agrees — only for the stack detected, reusing existing config:
+- Kotlin: detekt (with `buildUponDefaultConfig = true`, `allRules = false`) + ktlint/spotless; Java: Checkstyle or
+  Spotless + PMD/ErrorProne. TypeScript: ESLint with typescript-eslint `strict` + Prettier. Python: ruff (`E,F,B,S,UP,SIM`)
+  + mypy/pyright.
+- Security patterns: a `.semgrep.yml` using registry packs (`p/owasp-top-ten`, `p/secrets`, plus `p/kotlin`,
+  `p/java`, `p/typescript` or `p/python` as relevant).
+- Wire them into the build/lint command in CLAUDE.md so `/eng:dod` runs them, and make the build fail on errors.
+
+## 6. Reference patterns
+Find 3–6 canonical files already in the repo that show how things should be done (a repository with pagination, a
+controller with validation, an adapter with timeout/retry, a well-structured test, a migration). Ask the user to
+confirm, then list them in CLAUDE.md *Patterns* as `- <what> → path`. New projects: leave the TODO and fill it as the
+first good examples get merged.
+
+## 7. Safety net
 - Ensure `.gitignore` contains `.env`, `.env.*`, `!.env.example`, `CLAUDE.local.md`, `.claude/settings.local.json`.
 - Create `.env.example` with placeholder values if the project uses environment variables.
 - Suggest enabling the gitleaks pre-commit hook (`.pre-commit-config.yaml` is included in this template).
 
-## 6. Report
+## 8. Report
 Summarize what was filled in, what was pruned, what needs the user's input.

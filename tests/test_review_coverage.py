@@ -125,3 +125,20 @@ def test_sql_injection_is_checked_concretely(agent):
     text = (AGENTS / f"{agent}.md").read_text().lower()
     missing = [topic for topic in SQL_INJECTION_TOPICS if topic not in text]
     assert missing == [], f"{agent} SQL injection check is missing: {missing}"
+
+
+# --- v2.10: the writer's self-check covers everything the reviewers check ---------------------------
+
+SELF_CHECK = PLUGIN / "checklists/self-check.md"
+
+
+def test_self_check_covers_every_review_topic():
+    text = SELF_CHECK.read_text().lower()
+    missing = [topic for topic, phrases in REQUIRED_TOPICS.items() if not any(phrase in text for phrase in phrases)]
+    assert missing == [], f"developers are not told to check: {missing}"
+
+
+def test_self_check_covers_the_sql_injection_details():
+    text = SELF_CHECK.read_text().lower()
+    missing = [topic for topic in SQL_INJECTION_TOPICS if topic not in text]
+    assert missing == [], missing

@@ -10,8 +10,11 @@ argument-hint: "[--min N]"
 1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/findings_report.py" $ARGUMENTS` (fallback path: see the spec skill).
    It reads every review ledger (archived changes included) and lists totals by severity/area and **recurring problem
    classes** (default: ≥ 3 findings in ≥ 2 ledgers).
+   It also prints **first-time quality**: average rounds per PR, clean first rounds, first-round findings per 100
+   changed lines — compare with the last retro to see whether the plan + self-check steps are working.
 2. For each recurring class, open one or two of its ledger rows to understand the pattern, then draft **one** precise
-   rule line that would have prevented it (e.g. "Every repository query that can return many rows is paginated —
+   rule line that would have prevented it — or, when a tool can detect it (naming, unused code, complexity, missing
+   timeout, string-built SQL…), a **lint/semgrep rule** instead, which costs no review tokens ever again (e.g. "Every repository query that can return many rows is paginated —
    `findAll` without a limit is not allowed"). Skip classes an existing rule in `.claude/rules/` already covers —
    say so instead, and point at why it was missed (rule too vague? wrong file?).
 3. Show the table `problem class · count · proposed rule · target file` and ask which to add. Never add rules unasked.

@@ -48,7 +48,7 @@ def test_fresh_install_creates_rules_seeds_manifest_and_gitignore(plugin_copy, p
     assert (project / ".claude/settings.json").is_file()
     assert (project / ".pre-commit-config.yaml").is_file()
     assert SAMPLE_RULE in (project / ".claude/.eng-standards-manifest").read_text()
-    assert (project / ".claude/.eng-standards-version").read_text().strip() == "2.9.0"
+    assert (project / ".claude/.eng-standards-version").read_text().strip() == "2.10.0"
     gitignore = (project / ".gitignore").read_text().splitlines()
     assert "node_modules" in gitignore and ".env" in gitignore and "*.eng-new" in gitignore
     assert ".reviews/*/packet.md" in gitignore and "openspec/changes/*/reviews/*/packet.md" in gitignore

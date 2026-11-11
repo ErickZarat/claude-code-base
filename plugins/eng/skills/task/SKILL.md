@@ -51,6 +51,18 @@ No `github.json` lists this issue → no proposal needed:
 - **Dependency discovered while working** (the task turns out to need another ticket first):
   `SYNC block --issue <n> --by <other>` — recorded on GitHub only; never edit `tasks.md` for it. Then wait or stack.
 
+## 3b. Plan this ticket (before the first test — 10–15 lines, shown to the user)
+Most review MAJORs are design problems that are cheap to avoid here. Write:
+- **Files** to touch, and the **existing code to reuse** (`path:Symbol`, from `reuse-first`) — plus the matching
+  reference pattern from CLAUDE.md *Patterns*.
+- **Ports/adapters** involved (`interface-first-design`), and any contract change (backwards compatible?).
+- **Behaviours = tests**, in TDD order: each acceptance criterion with its scenario ID, plus edge and failure cases
+  (empty, invalid, not found, limits, permission, downstream failure/timeout).
+- **NFR targets** that apply (latency, volume, security, observability) and how the code meets them
+  (pagination, batching, timeouts, indexes).
+- **Open questions** → ask now, not in review.
+Continue straight away unless there is an open question or the plan deviates from the spec.
+
 ## 4. Implement
 `tdd` for every acceptance criterion (failing test shown first) — each test carries a marker comment with the
 scenario it proves (`// spec: billing/refund-above-total-is-rejected`); `reuse-first` before new code,
@@ -60,8 +72,9 @@ Do **not** edit `tasks.md` in a task PR (parallel PRs would conflict on it): the
 `/eng:epic` / `/eng:status` tick closed tasks in one commit.
 A question only a person can answer (product rule, naming, scope) → don't guess: record it as a pending decision.
 
-## 5. Definition of done
-Run the `dod` skill. Fix everything it finds before continuing.
+## 5. Definition of done (includes the self-check)
+Run the `dod` skill — it runs the gates and the `self-check` (the reviewers' checklist on your own diff). Fix
+everything before opening the PR: every finding you fix here is a review round you don't pay for.
 
 ## 6. Commit, push, draft PR linked to the issue
 - Every commit message starts with the tag: `<tag> <type>(<scope>): <summary>` — e.g. `[BUG-10] fix(refunds): handle null total`.

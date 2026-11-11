@@ -20,12 +20,16 @@ TODO: language + version, framework, database, messaging, build tool.
 | Unit tests   | TODO    |
 | Single test  | TODO    |
 | Lint/format  | TODO    |
+| Static analysis | TODO (detekt / ESLint / ruff + semgrep) |
 | Run locally  | TODO    |
 
 ## Review
 Minimum review depth: standard
 <!-- standard (default: every dedicated reviewer) | thorough (same reviewers on opus — auth/payments-heavy code).
      quick (one combined reviewer) is never chosen automatically. -->
+
+## Patterns (copy these — `reuse-first` and the task plan look here first)
+TODO: `- <what> → path`, e.g. `- paginated repository → src/main/kotlin/.../OrderRepository.kt`
 
 ## Layout
 TODO: where domain code, adapters, config, tests and migrations live.
