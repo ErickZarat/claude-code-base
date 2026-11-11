@@ -34,14 +34,14 @@ jobs:
         run: pytest -q
 
   hook-python39:
-    # The hook runs with whatever python3 the developer has; macOS's bundled one is 3.9.
+    # Hook and scripts run with whatever python3 the developer has; macOS bundles 3.9.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
-      - run: pip install pytest && pytest -q tests/test_guard_secrets.py
+      - run: pip install pytest && pytest -q tests/test_guard_secrets.py tests/test_github_sync.py tests/test_review_packet.py
 
   secrets:
     runs-on: ubuntu-latest
