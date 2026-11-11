@@ -35,7 +35,8 @@ jobs:
 
   hook-python39:
     # Hook and scripts run with whatever python3 the developer has; macOS bundles 3.9.
-    runs-on: ubuntu-latest
+    # Pinned: setup-python has no 3.9 build for ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
