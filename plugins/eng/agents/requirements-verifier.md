@@ -21,6 +21,9 @@ behaviour the diff does not show (callers, the rest of a function, an existing t
 3. For each: locate implementing code (file:line) and a test that would fail without it. Check behaviour matches,
    edge cases included.
 4. List changed code that maps to no requirement (scope creep) and unchecked `tasks.md` items.
+5. TDD evidence: if commit history is available, note requirements whose production code was committed before
+   its test (MAJ — TDD not followed).
+6. PR *Acceptance criteria*: a checked box without a passing test that proves it is a BLK.
 
 ## Ledger matching
 If the caller gives a ledger, match each finding against ALL its rows by fingerprint (component · problem class). A match — including a new variant of the same problem — reuses that ID and is reported as REOPENED, never as a new finding. Add a `Fingerprint` column to your table.
@@ -31,4 +34,4 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 Status: ✅ Done · ⚠️ Partial · ❌ Missing · 🐞 Wrong · 🧪 Untested
 Unchecked tasks: …   Out-of-scope: …   Verdict: READY / NOT READY
 ```
-Never mark ✅ without pointing to code AND a test.
+Never mark ✅ without pointing to code AND a test. Report every requirement and every finding — never truncate.

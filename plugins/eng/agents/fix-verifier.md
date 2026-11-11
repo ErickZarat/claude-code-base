@@ -15,6 +15,8 @@ For every ledger row with status FIXED:
 Then scan only the remediation diff for regressions the fixes introduced (broken behaviour, removed/weakened tests,
 new debug code, new secrets). Report each as a new finding.
 
+Report every FIXED item and every regression — never truncate.
+
 If a fix changes requirement-level behaviour (API contract, business rule, data model), say
 `ESCALATE: TARGETED` so the caller runs a fuller round.
 

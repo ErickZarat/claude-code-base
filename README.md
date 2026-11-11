@@ -242,6 +242,12 @@ See [Review cycle in detail](#review-cycle-in-detail).
    | `standard` | `requirements-verifier` + `code-reviewer` + `performance-reviewer` if triage flags data/loops/I/O | Default |
    | `thorough` | standard + performance always + dedicated security reviewer + pr-review-toolkit agents, on opus | Auth, payments, migrations, public APIs |
 
+   Every depth covers the same checklist — requirements, security, tests, correctness, architecture, design,
+   readability and basic efficiency (`tests/test_review_coverage.py` enforces it). Deeper levels add **specialists
+   and stronger models**, not missing checks: standard adds a dedicated requirements traceability reviewer and a
+   performance specialist when triage flags data/loops/I/O; thorough adds a dedicated security reviewer,
+   pr-review-toolkit agents and opus.
+
    Never below the project's minimum — set it in CLAUDE.md: `Minimum review depth: standard` (default `quick`).
 4. Confirms every 🔴/🟠 finding against the code; drops false positives.
 5. Report (tables): **coverage** (depth and why, reviewers run/skipped, files reviewed, what was not checked),

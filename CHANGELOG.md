@@ -3,6 +3,18 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.4.0] — 2026-11-11
+### Fixed — review coverage lost when reviewers were merged in 1.1.0
+- Removed the per-reviewer finding caps (15 / 10) that could silently drop findings on large PRs.
+- `code-reviewer` again covers the full secure-self-review checklist (PII in logs, generic client errors, CORS with
+  credentials, outbound calls/telemetry, `.env.example`, path traversal, password hashing/crypto), plus the former
+  pr-review-toolkit areas: stale comments, type design/encapsulation, needless complexity.
+- Quick depth: `code-reviewer` now checks requirements/acceptance criteria itself (requirement → code → test) and
+  does an efficiency pass (N+1, remote calls in loops, pagination, timeouts) when the dedicated reviewers don't run.
+- TDD evidence (production code committed before its test) restored in `requirements-verifier` and `code-reviewer`.
+- New `tests/test_review_coverage.py`: every review depth must cover every check the original review had — merging or
+  trimming reviewers can no longer drop a check without a failing test.
+
 ## [2.3.0] — 2026-11-11
 ### Fixed
 - The review cycle no longer starts fixing on its own. After **every** round it shows the full findings table and

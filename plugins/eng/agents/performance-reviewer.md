@@ -30,4 +30,4 @@ Sev codes: BLK · MAJ · MIN · S · Q — the caller turns them into IDs `R<rou
 Sev: 🟠 MAJOR (hurts at expected scale; 🔴 BLOCKER if it breaks a stated NFR) · 🟡 MINOR · 💡 SUGGESTION
 Verdict: OK / NEEDS CHANGES
 ```
-Max 10 findings, most impactful first. If only measurement can confirm, say which `EXPLAIN`/benchmark to run.
+Report every finding, most impactful first — never drop one to keep the list short. If only measurement can confirm, say which `EXPLAIN`/benchmark to run.
