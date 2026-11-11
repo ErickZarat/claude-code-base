@@ -45,6 +45,7 @@ STRING_SPLICING = re.compile(
     r"""\$\{|\$[A-Za-z_]|["']\s*\+|\+\s*["']|\bf["']|%\s*\(|%\s*[A-Za-z_]\w*\s*$|\.format\(|String\.format|sprintf|Sprintf"""
 )
 MAX_SQL_PREVIEW_LENGTH = 120
+CONTRACT_FILE = re.compile(r"(?i)(\.proto$|\.graphqls?$|\.gql$|\.avsc$|(openapi|swagger)[^/]*\.(ya?ml|json)$)")
 HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 DEPTH_ORDER = ("quick", "standard", "thorough")
 MINIMUM_DEPTH_LINE = re.compile(r"^\s*Minimum review depth:\s*(quick|standard|thorough)\b", re.IGNORECASE | re.MULTILINE)
@@ -158,6 +159,11 @@ def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
         "Focus hints for reviewers (every reviewer still runs and checks everything):",
         f"- performance focus: {'yes' if performance_needed else 'no'}",
         f"- security focus: {'yes' if security_needed else 'no'}",
+        "",
+        "## Contract changes",
+        "API contracts changed in this diff — check backwards compatibility, versioning and that the spec/PR documents",
+        "the change (the `API contracts` CI check compares .proto and OpenAPI against the base branch).",
+        *([f"- `{path}`" for path in paths if CONTRACT_FILE.search(path)] or ["- none"]),
         "",
         "## Dynamic SQL candidates",
         "Added lines that build SQL by splicing values into strings. Each must use bound parameters, or an allowlist",

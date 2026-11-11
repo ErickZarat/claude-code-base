@@ -22,7 +22,8 @@ TEMPLATE_DIR="$PLUGIN_DIR/template"
 PLUGIN_VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$PLUGIN_DIR/.claude-plugin/plugin.json")"
 
 MANAGED_PATHS=(".claude/rules" ".pre-commit-config.yaml" ".github/workflows/eng-pr-title.yml"
-  ".github/workflows/eng-pr-checklist.yml" ".github/scripts/eng_pr_checklist.py")
+  ".github/workflows/eng-pr-checklist.yml" ".github/scripts/eng_pr_checklist.py"
+  ".github/workflows/eng-contracts.yml" ".github/scripts/eng_contract_check.py")
 SEED_PATHS=("CLAUDE.md" ".claude/settings.json" ".github/pull_request_template.md")
 GITIGNORE_ENTRIES=(".env" ".env.*" "!.env.example" "CLAUDE.local.md" ".claude/settings.local.json" "*.eng-new"
   ".reviews/*/packet.md" "openspec/changes/*/reviews/*/packet.md")

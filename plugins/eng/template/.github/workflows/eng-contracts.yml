@@ -1,0 +1,23 @@
+# Installed by eng@claude-code-base. Fails a PR that breaks an API contract (.proto via buf, OpenAPI via oasdiff)
+# unless the PR body says "Breaking-change: approved — <reason>". GraphQL/Avro changes are flagged for review.
+name: API contracts
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  breaking-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the base branch is needed to compare contracts
+      - name: No breaking API changes (or explicitly approved)
+        env:  # PR data only via env — never interpolated into the script
+          BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 .github/scripts/eng_contract_check.py

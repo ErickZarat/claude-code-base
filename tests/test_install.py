@@ -55,6 +55,8 @@ def test_fresh_install_creates_rules_seeds_manifest_and_gitignore(plugin_copy, p
     assert (project / ".github/workflows/eng-pr-title.yml").is_file()
     assert (project / ".github/workflows/eng-pr-checklist.yml").is_file()
     assert (project / ".github/scripts/eng_pr_checklist.py").is_file()
+    assert (project / ".github/workflows/eng-contracts.yml").is_file()
+    assert (project / ".github/scripts/eng_contract_check.py").is_file()
     assert (project / ".github/pull_request_template.md").is_file()
 
 

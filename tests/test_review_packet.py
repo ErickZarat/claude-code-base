@@ -195,3 +195,14 @@ def test_no_dynamic_sql_says_none(repo):
     commit_all(repo)
 
     assert "none found" in dynamic_sql_section(build_packet(repo))
+
+
+def test_lists_changed_api_contracts_for_reviewers(repo):
+    write(repo, "api/refund.proto", "syntax = \"proto3\";\nmessage Refund { string id = 1; }\n")
+    write(repo, "docs/openapi.yaml", "openapi: 3.0.3\n")
+    write(repo, "src/A.kt", "class A\n")
+    commit_all(repo)
+
+    section = build_packet(repo).split("## Contract changes")[1].split("\n## ")[0]
+
+    assert "api/refund.proto" in section and "docs/openapi.yaml" in section and "src/A.kt" not in section
