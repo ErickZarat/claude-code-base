@@ -1,8 +1,8 @@
 ---
 name: review
-description: Review → fix → re-review rounds until merge-ready; severity decides each next round's scope; findings tracked in a ledger.
+description: One review round per PR (all reviewers), checkpoint, fix the chosen findings, confirm with gates + self-check. More rounds only on request.
 disable-model-invocation: true
-argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--max-rounds N] [--auto]"
+argument-hint: "[PR# | base branch] [--depth standard|thorough|quick] [--max-rounds N (default 1)] [--auto]"
 ---
 
 # Review cycle
@@ -54,10 +54,16 @@ Location: `openspec/changes/<change>/reviews/<branch-name>/ledger.md` if an Open
 ## Round 2 — <date> — scope: TARGETED — verdict: APPROVE
 | R2-MAJ-4 | RefundRepository · unbounded query | perf | Repo.kt:88 | findAll loads every refund | 1 | VERIFIED | paginated, test `pages refunds` (def456) |
 
-Statuses: OPEN → FIXED (author) → VERIFIED / REOPENED (next round reviewer) · DECLINED · ANSWERED · SUPERSEDED → <ID>
+Statuses: OPEN → FIXED (self-verified) [single round] · FIXED (author) → VERIFIED / REOPENED (next round) · DECLINED · ANSWERED · SUPERSEDED → <ID>
 ```
 
-## Loop
+## Default: one review round per PR (`--max-rounds 1`)
+Review once with every reviewer (round 1, scope FULL) → checkpoint → fix the chosen findings → confirm the fixes with
+the deterministic gates and the `self-check` skill — **no second AI review round**. The author marks each fixed item
+`FIXED (self-verified)` with the commit ref; the PR's human reviewer gives the final approval.
+Re-review rounds (the loop below) run only when the user passes `--max-rounds N` with N > 1.
+
+## Loop (rounds 2+ only with `--max-rounds N` > 1)
 
 ### Round N — Review
 1. Run one review-once round with the scope chosen below and the ledger path. Round 1 uses `--depth` (or the packet's
@@ -109,7 +115,14 @@ If `fix-verifier` returns `ESCALATE: TARGETED`, run a TARGETED round instead of 
 **Token hygiene:** the ledger + packet carry all state between rounds. Do not paste earlier rounds' reports back
 into the conversation; reference the ledger. If the session is long before starting, suggest `/clear` first.
 
-## Exit criteria (all must hold)
+## Exit criteria — single round (default)
+- [ ] Build, full test suite, lint and the `self-check` pass after remediation.
+- [ ] Every finding the user chose is `FIXED (self-verified)` with a commit ref; every Q is answered.
+- [ ] BLOCKER/MAJOR findings the user chose not to fix stay `OPEN` and are listed in the PR's *Pending decisions*
+      (so the PR stays draft until someone decides) — never silently dropped.
+- [ ] PR body: `Closes #n`, and every *Acceptance criteria* / *Definition of Done* item checked with evidence.
+
+## Exit criteria — multi-round (`--max-rounds N` > 1; all must hold)
 - [ ] Build, full test suite and lint pass on the final commit.
 - [ ] `requirements-verifier` in the final round (it runs every round; `code-reviewer`'s check only in explicit quick mode): every requirement ✅ Done — no Missing, Partial, Wrong or Untested.
 - [ ] No OPEN or REOPENED BLOCKER, MAJOR or QUESTION. Every MINOR is VERIFIED or DECLINED with reason.
@@ -118,7 +131,7 @@ into the conversation; reference the ledger. If the session is long before start
       and *Pending decisions* item is checked with evidence. Unchecked items are reported as open, not as passed.
 
 ## Stop conditions
-- Default max **3 rounds** (or `--max-rounds`). If reached, stop and report what is still open and why it keeps recurring.
+- Default **1 round**; with `--max-rounds N`, at most N. If reached, stop and report what is still open and why it keeps recurring.
 - A fingerprint seen for the **2nd time** (reopened or re-raised) → the author fixes the *root cause* across all
   variants, not the reported example, and states which variants the fix covers.
 - A fingerprint seen for the **3rd time** → STOP. Do not attempt another fix. Report to the user: the finding,
@@ -130,8 +143,8 @@ into the conversation; reference the ledger. If the session is long before start
 
 ## Exit report
 ```
-Review cycle complete — <N> rounds — verdict: READY TO MERGE / BLOCKED
-Findings: <total> raised · <fixed+verified> fixed · <declined> declined · <answered> answered
+Review complete — <N> round(s) — verdict: READY FOR HUMAN REVIEW / BLOCKED
+Findings: <total> raised · <fixed> fixed (self-verified / verified) · <declined> declined · <answered> answered
 Open (if blocked): <IDs + one line each>
 Ledger: <path>
 ```

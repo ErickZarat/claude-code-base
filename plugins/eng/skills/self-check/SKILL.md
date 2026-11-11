@@ -5,7 +5,7 @@ description: Use after implementing and before opening or updating a PR — run 
 
 # Self-check (author side, same checklist as the reviewers)
 
-Goal: the review cycle should find nothing you could have found yourself. Cheap: same session, no subagents.
+Goal: the single review round should find nothing you could have found yourself. Cheap: same session, no subagents.
 
 1. **Deterministic first** (commands from CLAUDE.md): build, tests, lint/format, static analysis (`semgrep` if
    configured), `gitleaks` if installed. Fix failures before anything else — never hand failing gates to review.

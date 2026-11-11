@@ -37,7 +37,7 @@ TODO: where domain code, adapters, config, tests and migrations live.
 ## Planning workflow
 - If an `openspec/` folder exists: every non-trivial change goes through OpenSpec. Do not code ahead of an approved change:
   `/opsx:propose` → `/eng:spec` (lint + questions) → approve → `/eng:epic` (milestone + one ticket per task) →
-  `/eng:task next` per ticket (one branch + one PR each, DoD + review cycle on every PR) → merge →
+  `/eng:task next` per ticket = one tasks.md section (one branch + one PR each, DoD + one review round) → merge →
   `/eng:spec --before-archive` → `/opsx:archive`.
 - Bugs and small fixes: `/eng:task <issue>` or `/eng:task new "title" --bug` (lite path, no proposal).
 - Team: `/eng:status` shows who is on what, what is blocked and what is ready; `/eng:task next` claims the next ready ticket.

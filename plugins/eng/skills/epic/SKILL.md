@@ -25,11 +25,14 @@ A change keeps the mode it was first synced with unless `--tracking` is given.
    Any ERROR → stop and suggest `/eng:spec` to fix the change. WARNs → show them and ask whether to continue.
    **Confirm the tasks are approved** — tickets are hard to undo. If the user has not approved `tasks.md` in this
    conversation, show it briefly and ask.
-4. **Granularity.** Default: one ticket (and one PR) per task. Task annotations `(after: 1.1; size: S)` become
+4. **Granularity.** Default: one ticket (and one PR) per `## N.` **section** of `tasks.md` — its tasks become the
+   ticket's checklist and the PR's commits; section dependencies come from cross-section `after:`. Use
+   `--group-by task` only when the user wants a PR per task (more reviews, more tokens).
+   Previously synced changes keep their granularity. Task annotations `(after: 1.1; size: S)` become
    native "blocked by" links (plus a "Depends on #n" line) and a `size:S` label; `/eng:task next` respects the order.
-   Show the lint's **Plan** (levels, critical path, max parallel) so the team can split lanes before tickets exist. If most tasks are tiny (one-line chores such as
-   "add dependency"), or there are more than ~12, suggest `--group-by section` (one ticket per `## N.` section). Ask once.
-5. **Preview:** `SYNC sync --change openspec/changes/<change> [--tracking …] [--group-by section] --dry-run`. Show the list.
+   Show the lint's **Plan** (levels, critical path, max parallel) so the team can split lanes before tickets exist. Also show the **PR plan**; if a
+   section is huge (>~8 tasks or size L work), suggest splitting it before syncing. Ask once.
+5. **Preview:** `SYNC sync --change openspec/changes/<change> [--tracking …] [--group-by task] --dry-run`. Show the list.
 6. **Create:** same command without `--dry-run`. Report the milestone / issue links, created ticket numbers and every
    warning (e.g. autolink needs repo admin).
 7. **Commit the mapping** (`tasks.md` with `[TASK-n]` tags + `github.json`):

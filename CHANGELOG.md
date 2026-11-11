@@ -3,6 +3,26 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [3.0.0] — 2026-11-11
+### Changed — one PR per section, one review round per PR (≈ a fraction of the review tokens)
+- **`/eng:epic` default granularity is now a `## N.` section of `tasks.md`**: one ticket = one branch = one PR; the
+  section's tasks become the ticket checklist and the PR's commits (`[TASK-50] feat(x): <task> (1.2)`). Cross-section
+  `after:` becomes the section ticket's "blocked by". `--group-by task` keeps the old per-task tickets.
+- `spec_lint` prints a **PR plan** (one PR per section) and warns when sections form a single chain.
+- Sync ticks every task of a closed section ticket in `tasks.md`.
+- **`/eng:review` runs one round by default** (`--max-rounds 1`): every reviewer → checkpoint → fix the chosen findings
+  → confirm with build/tests/lint + self-check (`FIXED (self-verified)`), no second AI round. 🔴/🟠 you choose not
+  to fix stay OPEN and are listed under the PR's *Pending decisions*. Reviewers are unchanged (as strict as before).
+- `/eng:task` works a section ticket task by task (TDD + one commit each) and runs one review round.
+- OpenSpec `[eng]` tasks rules: one section = one PR-sized deliverable; tasks inside are commits.
+- PR template DoD line and the workflow rule reflect the single round.
+### Migration
+- Changes already synced keep their granularity (`github.json` has items → per task). New changes default to
+  sections; pass `--group-by task` to keep per-task PRs.
+- Want the old cycle? `/eng:review --max-rounds 3`.
+- Re-run `/eng:setup` to get the updated PR template, workflow rule and CLAUDE.md, and re-merge the `[eng]` rules into
+  `openspec/config.yaml`.
+
 ## [2.10.0] — 2026-11-11
 ### Added — get it right the first time (fewer review rounds, fewer tokens)
 - `checklists/self-check.md`: the reviewers' checklist for authors; `tests/test_review_coverage.py` keeps it in sync

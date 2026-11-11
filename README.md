@@ -44,7 +44,7 @@ Installs rules, CLAUDE.md, settings, pre-commit and the PR-title check, then fil
 ```text
 /opsx:propose <what you want>   # plan → proposal, specs, design, tasks
 /eng:spec                       # spec lint + questions → you approve the change
-/eng:epic                       # GitHub milestone + one ticket per task, tagged [TASK-n]
+/eng:epic                       # GitHub milestone + one ticket per tasks.md section, tagged [TASK-n]
 /eng:task next                  # ticket → branch → TDD → DoD → PR "[TASK-n] …" with checklists → review → ready
   … you merge the PR …
 /clear                          # fresh context for the next ticket
@@ -65,11 +65,11 @@ That's it. Everything below is reference.
 | `/eng:bootstrap` | Fill CLAUDE.md for this repo, prune unused language rules, optional OpenSpec |
 | `/eng:spec [change] [--before-archive]` | Spec lint + ambiguity questions before coding; traceability gate before archive |
 | `/eng:retro` | Recurring review findings → proposed one-line rules in `.claude/rules/learned.md` |
-| `/eng:epic [change]` | OpenSpec change → GitHub milestone (or parent issue) + one ticket per task |
+| `/eng:epic [change]` | OpenSpec change → GitHub milestone (or parent issue) + one ticket per `## N.` section |
 | `/eng:task <n\|next\|new "title" --bug>` | Claims one ticket and takes it end to end, ending in a reviewed, ready-for-review PR |
 | `/eng:status [change]` | Team board: who is on which ticket, in review, blocked (by what), ready |
 | `/eng:dod` | Definition-of-done check (build, tests, lint, diff, security) |
-| `/eng:review [PR#]` | Review → fix → re-review cycle until merge-ready |
+| `/eng:review [PR#]` | One review round (all reviewers) → checkpoint → fix chosen findings → gates + self-check. `--max-rounds N` for re-review rounds |
 | `/eng:review-once [PR#]` | One read-only review round (e.g. someone else's PR) |
 
 ---
@@ -85,8 +85,8 @@ That's it. Everything below is reference.
 | Step | You do | Claude does |
 |---|---|---|
 | 1. Plan | Describe the change; approve proposal/specs/tasks | Reads the code, asks questions, writes the OpenSpec change. No code before approval |
-| 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the milestone and one ticket per task, tags `tasks.md`, commits the mapping |
-| 3. Work a ticket | Run `/eng:task next` | Claims the ticket, branch, TDD per behaviour, reuse/interfaces, `/eng:dod`, draft PR, review cycle, marks PR ready, comments the verdict |
+| 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the milestone and one ticket per section, tags `tasks.md`, commits the mapping |
+| 3. Work a ticket | Run `/eng:task next` | Claims the ticket, branch, each task TDD + its own commit, reuse/interfaces, `/eng:dod`, draft PR, one review round, marks PR ready, comments the verdict |
 | 4. Decide | Answer escalations; read the PR | Stops and asks on repeated findings, blocked fixes, product decisions |
 | 5. Merge | You merge (squash) | Never approves or merges |
 | 6. Next | `/clear`, `/eng:task next` | Picks the next ticket that is open and has no PR |
@@ -153,7 +153,7 @@ Part of milestone: Add refunds (add-refunds)
 ```
 - `/eng:task` writes this body, checks items **only with evidence** (a passing test or a real DoD result), and keeps
   the PR as **draft** while anything is unchecked — then tells you exactly what's open and who decides.
-- The review cycle treats a checked criterion without a test as a 🔴 BLOCKER, and an unchecked one as open work.
+- The review treats a checked criterion without a test as a 🔴 BLOCKER, and an unchecked one as open work.
 - Manual PRs get the same structure from `.github/pull_request_template.md`.
 
 **What enforces it (CI, installed by `/eng:setup`)**
@@ -274,7 +274,7 @@ OpenSpec change → GitHub epic + tickets.
 ```text
 /eng:epic                          # the active change (asks if there are several)
 /eng:epic add-refunds              # a specific change
-/eng:epic add-refunds --group-by section   # one ticket per "## N." section instead of per task
+/eng:epic add-refunds --group-by task      # one ticket per task instead of per "## N." section (more PRs, more reviews)
 /eng:epic add-refunds --tracking both      # milestone + parent issue with sub-issues
 /eng:epic --dry-run                # show what would be created
 ```
@@ -286,7 +286,7 @@ OpenSpec change → GitHub epic + tickets.
 5. Offers the squash-merge repo setting. Idempotent: re-run after changing `tasks.md`.
 
 ### `/eng:task`
-One ticket → one PR, with DoD and the review cycle every time.
+One ticket (a `## N.` section) → one PR, with DoD and one review round every time; tasks are its commits.
 ```text
 /eng:task next                     # next ticket: my own claim first, else unclaimed, open, no PR, not blocked
 /eng:task 44                       # a specific ticket
@@ -297,12 +297,13 @@ One ticket → one PR, with DoD and the review cycle every time.
 2. Reads the ticket and only the OpenSpec parts it needs.
 3. **Claims** the ticket (assigns you; stops if a teammate has it). Looks up the tag (`[BUG-10]`, `[TASK-44]` …).
    Branch `<kind>-<n>-<slug>` from the latest default branch; if blocked, offers another ready ticket or `--stack`.
-4. TDD per behaviour, reuse-first, interfaces. Never edits `tasks.md` (sync ticks closed tickets). A dependency
+4. Works the section's tasks in order — each one TDD + its own commit `[TASK-44] feat(x): <task> (1.2)` — reuse-first, interfaces. Never edits `tasks.md` (sync ticks closed tickets). A dependency
    found mid-work is recorded with `block`. Out-of-scope discoveries become proposed new tasks, not extra code.
 5. `/eng:dod` — must pass.
 6. Tagged commits, push, **draft** PR titled `[<KIND>-n] <type>: <task>` with `Closes #n`, the milestone and
    labels, and checklists for acceptance criteria, DoD and pending decisions (see [Ticket tracking](#ticket-tracking)).
-7. Review cycle on the PR — every dedicated reviewer, stopping after each round for your decision.
+7. **One review round** on the PR — every dedicated reviewer, then it stops for your decision, fixes what you chose
+   and confirms with build/tests/lint + self-check (no second AI round).
 8. Everything checked with evidence → PR marked ready + one verdict comment. Anything open (pending decision,
    unproven criterion, escalation) → stays draft with the open items listed. Never merges.
 
@@ -313,15 +314,15 @@ interfaces for external deps · TDD followed · every requirement implemented ·
 `secure-self-review` passed. Ends with a `Done / Changed / Verified / Security / Follow-ups` summary; failures go at the top.
 
 ### `/eng:review`
-Iterative review → remediation → re-review until merge-ready (`/eng:task` runs it for you).
+One review round per PR by default (`/eng:task` runs it for you): review → checkpoint → fix → gates + self-check.
 ```text
 /eng:review                       # current branch vs main
 /eng:review 42                    # PR #42
 /eng:review 42 --depth thorough   # depth of round 1 (default: triage decides)
-/eng:review 42 --max-rounds 5     # default 3
+/eng:review 42 --max-rounds 3     # default 1 — >1 re-reviews fixes with fresh reviewers
 /eng:review 42 --auto             # no checkpoints — only for unattended runs
 ```
-After **every round** it stops: shows the full findings table and the Coverage section, then asks
+After the round it stops: shows the full findings table and the Coverage section, then asks
 **Fix required** (BLK, MAJ, answer Q) · **Fix required + minors** · **Choose** IDs (decline others with a reason) ·
 **Stop here**. Nothing is edited until you answer.
 See [Review cycle in detail](#review-cycle-in-detail).
@@ -353,7 +354,7 @@ See [Review cycle in detail](#review-cycle-in-detail).
 ### Planning commands (OpenSpec)
 | Command | When |
 |---|---|
-| `/opsx:propose`, `/opsx:apply`, `/opsx:archive` | Projects with OpenSpec (`openspec init --tools claude`). Use `/eng:task` instead of `/opsx:apply` to get one PR per task |
+| `/opsx:propose`, `/opsx:apply`, `/opsx:archive` | Projects with OpenSpec (`openspec init --tools claude`). Use `/eng:task` instead of `/opsx:apply` to get one PR per section |
 | "plan this change" → `plan-change` skill | Projects without OpenSpec; plan in chat or `docs/plans/<date>-<slug>.md` |
 
 ---
@@ -418,6 +419,10 @@ answer with tables only.
 
 ## Review cycle in detail
 
+**Default (since 3.0): one round per PR.** Round 1 → checkpoint → remediation → gates (build, tests, lint) +
+self-check on the fixes → items marked `FIXED (self-verified)` → done. 🔴/🟠 you chose not to fix stay OPEN and are
+listed under the PR's *Pending decisions*. The loop below only runs with `--max-rounds N` > 1.
+
 ```
 Round 1  FULL review ──► findings ──► ledger
    ▼
@@ -452,14 +457,19 @@ Exit when all criteria hold — or stop and ask you
 - **Author** — your session; fixes in order 🔴 → 🟠 → ❓ → 🟡 → 💡, bugs via a failing test first, commits as
   `[TASK-44] fix(review): R1-MAJ-3 …`. It cannot verify its own fixes.
 
-### Exit criteria
+### Exit criteria — single round (default)
+- Build, full tests, lint and the self-check green on the final commit.
+- Every chosen finding `FIXED (self-verified)` with its commit; 🔴/🟠 left open are listed in the PR's Pending decisions
+  (the PR stays draft while any is undecided).
+
+### Exit criteria — multi-round (`--max-rounds N`)
 - Build, full tests, lint green on the final commit.
 - Latest requirements check: every requirement ✅ Done (no Missing / Partial / Wrong / Untested), no fix escalated since.
 - No open or reopened 🔴, 🟠 or ❓; every 🟡 verified or declined with a reason.
 - Every fix from the last remediation verified by a reviewer.
 
 ### When it stops and asks you
-- Max rounds reached (default 3).
+- Max rounds reached (default 1).
 - A finding's fingerprint (component · problem class) seen a 3rd time — variants of the same problem count.
   On the 2nd time the author must fix the root cause across all variants, not just the reported example.
 - A hook, permission or tool error blocks the same fix twice (Claude never rewords content to get past a guard).
@@ -469,7 +479,7 @@ Exit when all criteria hold — or stop and ask you
 ### The ledger
 `openspec/changes/<change>/reviews/<branch>/ledger.md` (OpenSpec) or `.reviews/<branch>/ledger.md`. One table per round with
 stable IDs, a fingerprint and `Seen` count per finding, and statuses
-`OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED · SUPERSEDED → <ID>`.
+`OPEN → FIXED (self-verified) · FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED · SUPERSEDED → <ID>`.
 
 ### Finding IDs
 `R<round>-<code>-<n>` — round raised, type/severity code, running number (unique per ledger):
@@ -488,7 +498,7 @@ audit trail, or add `.reviews/` to `.gitignore`.
 
 ### Final report
 ```
-Review cycle complete — 3 rounds — verdict: READY TO MERGE
+Review complete — 1 round — verdict: READY FOR HUMAN REVIEW
 Findings: 14 raised · 10 fixed · 3 declined · 1 answered
 Ledger: .reviews/feature-refunds/ledger.md
 ```

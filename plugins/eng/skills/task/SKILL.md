@@ -1,11 +1,14 @@
 ---
 name: task
-description: Work one GitHub ticket end to end — branch, TDD, DoD, PR linked to the issue with checklists, review cycle. One PR per task.
+description: Work one GitHub ticket end to end — one tasks.md section (or a single bug/task) → branch, TDD per task, DoD, one PR, one review round.
 disable-model-invocation: true
 argument-hint: "[issue# | next | new \"title\" --bug|--feature] [--depth standard|thorough|quick] [--stack] [--auto]"
 ---
 
 # Work one ticket → one PR
+
+A ticket is normally one `## N.` **section** of `tasks.md` (its body lists the section's tasks); older changes and
+bugs have one ticket per task. Either way: **one ticket = one branch = one PR = one review round.**
 
 `SYNC` = `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/github_sync.py"` (fallback path: see the epic skill).
 `<n>` = ticket number, `<tag>` = `$(SYNC tag --issue <n>)` — `[<KIND>-<n>]` where KIND comes from the issue's type, else
@@ -63,7 +66,10 @@ Most review MAJORs are design problems that are cheap to avoid here. Write:
 - **Open questions** → ask now, not in review.
 Continue straight away unless there is an open question or the plan deviates from the spec.
 
-## 4. Implement
+## 4. Implement — task by task, one commit each
+For a section ticket, work its tasks in order (respecting `after:` inside the section); each task = TDD cycle(s) +
+one commit `<tag> <type>(<scope>): <task title> (<task key>)`, e.g. `[TASK-50] feat(refunds): add Refund entity (1.2)`.
+
 `tdd` for every acceptance criterion (failing test shown first) — each test carries a marker comment with the
 scenario it proves (`// spec: billing/refund-above-total-is-rejected`); `reuse-first` before new code,
 `interface-first-design` for anything external; the `decision` skill when you choose between real alternatives;
@@ -95,10 +101,11 @@ everything before opening the PR: every finding you fix here is a review round y
 - `gh pr create --draft --base <base> --title "$(SYNC title --issue <n> --type <type> --title "<ticket title without its 1.2 key>")" --body-file <file> --milestone "<milestone title>" --label task --label "change:<change>"`
   (`Closes #<n>` links the PR to the issue — it shows under the issue's *Development* and closes it on merge.)
 
-## 7. Review cycle on the PR
-Follow `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` for this PR (depth from `--depth`, else triage and the project
-minimum — `standard` by default: every dedicated reviewer runs, also on small task PRs). It **stops after each review round** to show the findings and
-ask which to fix; continue the task only after the user answers. Pass `--auto` only if the user asked for an
+## 7. One review round on the PR
+Follow `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` for this PR — one round with every reviewer, the checkpoint,
+your chosen fixes confirmed by gates + self-check; more rounds only if the user asks with `--max-rounds` (depth from
+`--depth`, else triage and the project minimum — `standard` by default: every dedicated reviewer runs). It **stops
+after the review round** to show the findings and ask which to fix; continue the task only after the user answers. Pass `--auto` only if the user asked for an
 unattended run. Remediation commits also start with `<tag>`. Questions the review raises that need a
 person go into *Pending decisions*.
 

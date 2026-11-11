@@ -18,7 +18,7 @@ Closes #
 - [ ] No secrets, debug code, TODOs or commented-out code
 - [ ] Docs, `.env.example` and specs updated if behaviour or config changed
 - [ ] Security self-review done
-- [ ] Review cycle passed — no open BLOCKER / MAJOR findings
+- [ ] Review round done — chosen findings fixed (gates + self-check green); any BLOCKER / MAJOR left open is listed under Pending decisions
 
 ## Pending decisions
 <!-- Open questions that need someone's decision. Add "- [ ] question (who)"; check it with the answer when decided.
