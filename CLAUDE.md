@@ -10,11 +10,13 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
   - `agents/*.md` — reviewer subagents (`requirements-verifier`, `code-reviewer`, `performance-reviewer`, `fix-verifier`);
     default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
   - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
+  - `scripts/github_sync.py` — OpenSpec change → GitHub epic + task issues; `GitHubClient` port, `GhCliClient` adapter.
+    Tests use a fake client — never call the real GitHub API from tests.
   - `hooks/hooks.json` + `hooks/guard_secrets.py` — PreToolUse secret/destructive-command guard.
   - `template/` — files plugins cannot distribute (rules, CLAUDE.md, settings.json, pre-commit), copied into projects by `install.sh`.
   - `install.sh` — manifest-based installer/updater (bash 3.2 compatible — macOS default shell).
 - `install.sh` (root) — wrapper for clone-based installs.
-- `tests/` — pytest behaviour tests for the hook and the installer. `scripts/validate.py` — static checks.
+- `tests/` — pytest behaviour tests for the hook, installer, scripts and the PR-title workflow. `scripts/validate.py` — static checks.
 
 ## Commands
 | Purpose | Command |
@@ -26,7 +28,8 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
 | Try installer on a scratch dir | `./install.sh --dry-run /tmp/scratch` |
 
 ## Rules for changing this repo
-- This repo follows its own standards: TDD for `guard_secrets.py` and `install.sh` changes (failing test first).
+- This repo follows its own standards: TDD for every script, hook and installer change (failing test first).
+- Scripts in `plugins/eng/scripts` and `hooks` must run on Python 3.9 (macOS default): `from __future__ import annotations`.
 - Never put realistic-looking secrets in tests; build fake values from fragments (see `tests/test_guard_secrets.py`).
 - Keep rules short and precise — one line per behaviour. They load into every session of every project.
 - Token budget: skill descriptions < 200 chars (sent every request); review skills stay manual-only; reviewers read the packet, output tables.

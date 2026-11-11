@@ -1,15 +1,17 @@
 # claude-code-base
 
 Engineering standards for Claude Code, packaged as a plugin marketplace so every project gets the same behaviour:
-**no vibe coding, TDD, reuse before writing, interface-first design, no leaked secrets or backdoors, and iterative
-PR review until every requirement is implemented and tested.** Works with or without OpenSpec.
+**no vibe coding, TDD, reuse before writing, interface-first design, no leaked secrets or backdoors, one ticket →
+one reviewed PR, and every merge traceable to its GitHub issue.** Works with or without OpenSpec.
 
 - [Quickstart](#quickstart)
+- [Commands at a glance](#commands-at-a-glance)
 - [Daily workflow](#daily-workflow)
+- [Ticket tracking](#ticket-tracking)
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
 - [Reviewer agents](#reviewer-agents)
-- [Review cycle in detail](#review-in-detail)
+- [Review cycle in detail](#review-cycle-in-detail)
 - [Rules](#rules)
 - [Security guard](#security-guard)
 - [Updating and versioning](#updating-and-versioning)
@@ -24,56 +26,104 @@ PR review until every requirement is implemented and tested.** Works with or wit
 **1. Once per machine** — inside any Claude Code session:
 ```text
 /plugin marketplace add ErickZarat/claude-code-base
-/plugin install eng@claude-code-base          # choose "user" scope → works in every project
+/plugin install eng@claude-code-base                         # choose "user" scope → works in every project
 /plugin install security-guidance@claude-plugins-official
-/plugin install pr-review-toolkit@claude-plugins-official   # optional, improves code-quality review
 ```
-Private repo: Claude Code fetches it with your git credentials (`gh auth login` or SSH). Type `/eng:` to
-confirm the commands appear.
+Needs `gh auth login` (private repo, tickets, PRs). Type `/eng:` to confirm the commands appear.
 
-**2. Once per project** — open Claude Code in the repo:
+**2. Once per project:**
 ```text
 /eng:setup
 ```
-Previews, installs rules + CLAUDE.md + settings + pre-commit, then fills CLAUDE.md for your stack. Commit the result.
+Installs rules, CLAUDE.md, settings, pre-commit and the PR-title check, then fills CLAUDE.md for your stack. Commit it.
 
-**3. Every change:**
+**3. Every feature:**
 ```text
-/opsx:propose <what you want>        # or just describe it — Claude uses plan-change if there is no OpenSpec
-  … approve the plan, Claude implements with TDD …
-/eng:dod    # self-check before the PR
-/eng:review 42       # review → fix → re-review until merge-ready (42 = PR number)
-/clear                               # start the next task in a fresh context
+/opsx:propose <what you want>   # plan → you approve proposal, specs and tasks
+/eng:epic                       # GitHub epic + one ticket per task, tagged [ISSUE-n]
+/eng:task next                  # ticket → branch → TDD → DoD → PR "[ISSUE-n] …" → review cycle → ready
+  … you merge the PR …
+/clear                          # fresh context for the next ticket
+/eng:task next                  # repeat until the epic is done
+/opsx:archive                   # when every ticket is merged
 ```
 That's it. Everything below is reference.
+
+---
+
+## Commands at a glance
+
+| Command | What it does |
+|---|---|
+| `/eng:setup` | Install / update the project files (rules, CLAUDE.md, settings, pre-commit, PR-title check) |
+| `/eng:bootstrap` | Fill CLAUDE.md for this repo, prune unused language rules, optional OpenSpec |
+| `/eng:epic [change]` | OpenSpec change → GitHub epic + linked ticket per task |
+| `/eng:task <n\|next>` | One ticket end to end, ending in a reviewed, ready-for-review PR |
+| `/eng:dod` | Definition-of-done check (build, tests, lint, diff, security) |
+| `/eng:review [PR#]` | Review → fix → re-review cycle until merge-ready |
+| `/eng:review-once [PR#]` | One read-only review round (e.g. someone else's PR) |
 
 ---
 
 ## Daily workflow
 
 ```
- Plan ───────────► Implement (TDD) ───────► Done check ─────────► Review cycle ──────────► Merge
- /opsx:propose      tdd, reuse-first,        /eng:        /eng:          you
- or plan-change     interface-first-design   dod     review <PR#>
- (you approve)      (automatic via rules)                           (stops to ask when needed)
+ Plan ─────────► Tickets ─────► Per ticket (/eng:task) ──────────────────────────────────────► Merge
+ /opsx:propose    /eng:epic      branch → TDD → /eng:dod → draft PR [ISSUE-n] → /eng:review → ready   you
+ (you approve)                   (one ticket = one branch = one PR; small diffs → quick, cheap reviews)
 ```
 
 | Step | You do | Claude does |
 |---|---|---|
-| 1. Plan | Describe the change; approve the plan | Reads the code, asks questions, writes an OpenSpec change or a `plan-change` plan. No code before approval |
-| 2. Implement | Watch / answer questions | Red → green → refactor per behaviour, searches for reusable code first, puts external dependencies behind interfaces |
-| 3. Done check | Run `/eng:dod` | Build, tests, lint, diff review, security self-review, honest summary |
-| 4. PR | Open the PR (or ask Claude: "commit and open a PR") | — |
-| 5. Review | Run `/eng:review <PR#>` | Review rounds with independent reviewers, fixes findings with TDD, re-reviews by severity, writes a ledger |
-| 6. Decide | Answer escalated questions; read the verdict | Posts the report to the PR only if you ask |
-| 7. Merge | You merge | Never approves or merges |
+| 1. Plan | Describe the change; approve proposal/specs/tasks | Reads the code, asks questions, writes the OpenSpec change. No code before approval |
+| 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the epic and one linked ticket per task, tags `tasks.md`, commits the mapping |
+| 3. Work a ticket | Run `/eng:task next` | Branch, TDD per behaviour, reuse/interfaces, ticks the task, `/eng:dod`, draft PR, review cycle, marks PR ready, comments the verdict |
+| 4. Decide | Answer escalations; read the PR | Stops and asks on repeated findings, blocked fixes, product decisions |
+| 5. Merge | You merge (squash) | Never approves or merges |
+| 6. Next | `/clear`, `/eng:task next` | Picks the next ticket that is open and has no PR |
+
+No OpenSpec in a project? Describe the change, Claude writes a `plan-change` plan, then `/eng:dod` and
+`/eng:review` on the PR. Title it `[NO-ISSUE] …` or create the issue by hand and use `[ISSUE-n]`.
+
+---
+
+## Ticket tracking
+
+**Structure on GitHub**
+```
+[EPIC] Add refunds (add-refunds)            #42   label: epic   ← one per OpenSpec change
+ ├─ 1.1 Add refunds table migration         #43   label: task   ← sub-issue, one per open task
+ ├─ 2.1 POST /refunds endpoint              #44
+ └─ 2.2 Reject refunds above order total    #45
+```
+The epic body has the proposal summary and a checklist of its tickets. Tasks already `[x]` get no ticket.
+With `--group-by section`, each `## N.` section of `tasks.md` becomes one ticket (its tasks become a checklist).
+
+**The tag `[ISSUE-<n>]` goes at the start of:**
+| Where | Example |
+|---|---|
+| `tasks.md` (written by `/eng:epic`) | `- [ ] 2.1 [ISSUE-44] POST /refunds endpoint` |
+| Branch name | `issue-44-post-refunds-endpoint` |
+| Every commit | `[ISSUE-44] feat(refunds): add POST /refunds` |
+| PR title | `[ISSUE-44] feat: POST /refunds endpoint` |
+| PR body | `Closes #44` · `Part of #42` |
+| Squash-merge commit on `main` | = PR title, so `git log --grep "ISSUE-44"` finds everything |
+
+**What enforces it**
+- `/eng:task` builds branch names and PR titles with the script, so they're always consistent.
+- `.github/workflows/eng-pr-title.yml` (installed by `/eng:setup`) fails any PR whose title doesn't start with
+  `[ISSUE-<n>] ` or `[NO-ISSUE] `. Dependabot/Renovate are exempt. Make it a required check in branch protection.
+- `/eng:epic` offers the repo setting *squash merge, commit title = PR title* so merge commits keep the tag, and adds
+  an autolink so `ISSUE-44` in commits and PRs links to issue #44 (both need repo admin).
+- `openspec/changes/<change>/github.json` stores the change ↔ epic ↔ ticket mapping; re-running `/eng:epic`
+  after editing `tasks.md` only creates tickets for new tasks.
 
 ---
 
 ## Command reference
 
 All commands are plugin skills, invoked as `/eng:<name>`. Arguments are read by Claude, so plain language
-works too ("review PR 42, max 3 rounds").
+works too ("work on ticket 44, thorough review").
 
 ### `/eng:setup`
 Install or update the per-project files.
@@ -82,31 +132,67 @@ Install or update the per-project files.
 /eng:setup --dry-run     # only show what would change
 /eng:setup --user        # rules only, into ~/.claude (apply to every project on this machine)
 ```
-- First run: creates `.claude/rules/`, `.claude/settings.json`, `CLAUDE.md`, `.pre-commit-config.yaml`, updates `.gitignore`,
-  then runs `bootstrap`.
-- Later runs: updates rules you haven't modified; for rules you customised, writes `<file>.eng-new` and helps you merge.
-- Never overwrites `CLAUDE.md` or `settings.json`.
+- First run: creates `.claude/rules/`, `.claude/settings.json`, `CLAUDE.md`, `.pre-commit-config.yaml`,
+  `.github/workflows/eng-pr-title.yml`, updates `.gitignore`, then runs `bootstrap`.
+- Later runs: updates files you haven't modified; for ones you customised, writes `<file>.eng-new` and helps you merge.
+- Never overwrites `CLAUDE.md` or `settings.json` (except renaming the old `eng-standards` plugin id to `eng`).
 
 ### `/eng:bootstrap`
 Adapt the setup to the repo (runs automatically after the first `setup`). Detects the stack, fills every `TODO` in
 CLAUDE.md with verified build/test/lint commands, prunes unused language rules (and records them in
 `.claude/.eng-standards-ignore`), asks whether to use OpenSpec, creates `.env.example`.
 
-### `/eng:dod`
-Run before saying a task is finished or opening a PR.
+### `/eng:epic`
+OpenSpec change → GitHub epic + tickets.
 ```text
-/eng:dod
+/eng:epic                          # the active change (asks if there are several)
+/eng:epic add-refunds              # a specific change
+/eng:epic add-refunds --group-by section   # one ticket per "## N." section instead of per task
+/eng:epic --dry-run                # show what would be created
 ```
+1. Checks `gh` auth, validates the change (`openspec validate`), confirms `tasks.md` is approved.
+2. Suggests `--group-by section` when tasks are tiny or numerous (fewer tickets → fewer PRs).
+3. Previews, creates epic + tickets + sub-issue links + labels (`epic`, `task`) + `ISSUE-` autolink.
+4. Writes `[ISSUE-n]` into `tasks.md` and `github.json`; commits them (or leaves them for the first task PR if `main` is protected).
+5. Offers the squash-merge repo setting. Idempotent: re-run after changing `tasks.md`.
+
+### `/eng:task`
+One ticket → one PR, with DoD and the review cycle every time.
+```text
+/eng:task next                     # next ticket: not done, still open, no PR yet
+/eng:task 44                       # a specific ticket
+/eng:task 44 --depth thorough      # force a deeper review (auth, payments, migrations…)
+/eng:task 45 --stack               # build on an unmerged earlier ticket's branch
+```
+1. Clean working tree; one task per context (asks you to `/clear` otherwise).
+2. Reads the ticket and only the OpenSpec parts it needs.
+3. Branch `issue-<n>-<slug>` from the latest default branch (asks to wait or stack if it depends on an unmerged ticket).
+4. TDD per behaviour, reuse-first, interfaces; ticks the task in `tasks.md`. Out-of-scope discoveries become proposed new tasks, not extra code.
+5. `/eng:dod` — must pass.
+6. `[ISSUE-n]` commits, push, **draft** PR titled `[ISSUE-n] <type>: <task>` with `Closes #n` / `Part of #epic`.
+7. Review cycle on the PR (small task PRs → `quick`, 1 reviewer).
+8. Clean exit → PR marked ready + one verdict comment. Escalation → stays draft with the open question. Never merges.
+
+### `/eng:dod`
+Run before saying a task is finished or opening a PR (`/eng:task` runs it for you).
 Checks: build, tests, lint (real output) · diff only touches the task · no debug code/TODOs · reuse applied ·
 interfaces for external deps · TDD followed · every requirement implemented · docs/.env.example updated ·
 `secure-self-review` passed. Ends with a `Done / Changed / Verified / Security / Follow-ups` summary; failures go at the top.
 
-### `/eng:review-once`
-**One** review round. Reports findings; does not fix anything.
+### `/eng:review`
+Iterative review → remediation → re-review until merge-ready (`/eng:task` runs it for you).
 ```text
-/eng:review-once                       # current branch vs main
-/eng:review-once 42                    # PR #42 (needs gh)
-/eng:review-once develop               # current branch vs develop
+/eng:review                       # current branch vs main
+/eng:review 42                    # PR #42
+/eng:review 42 --depth thorough   # depth of round 1 (default: triage decides)
+/eng:review 42 --max-rounds 5     # default 3
+```
+See [Review cycle in detail](#review-cycle-in-detail).
+
+### `/eng:review-once`
+**One** read-only review round — reports findings, fixes nothing. For someone else's PR or a quick opinion.
+```text
+/eng:review-once 42                    # PR #42
 /eng:review-once 42 --depth thorough   # quick | standard | thorough (default: triage decides)
 ```
 1. Builds a **review packet** once (`scripts/review_packet.py`): diff, changed files, requirement sources, triage.
@@ -119,25 +205,13 @@ interfaces for external deps · TDD followed · every requirement implemented ·
    | `standard` | `requirements-verifier` + `code-reviewer` + `performance-reviewer` if triage flags data/loops/I/O | Default |
    | `thorough` | standard + performance always + dedicated security reviewer + pr-review-toolkit agents, on opus | Auth, payments, migrations, public APIs |
 4. Confirms every 🔴/🟠 finding against the code; drops false positives.
-5. Report (tables): gates, requirements traceability, findings with IDs and severity, verdict
-   (✅ APPROVE · 🟠 APPROVE WITH COMMENTS · ❌ REQUEST CHANGES).
+5. Report (tables): gates, requirements traceability, findings with IDs and severity, verdict.
+   Say "post it to the PR" to comment via `gh`.
 
-Use it when you only want an opinion, e.g. on someone else's PR. Say "post it to the PR" to comment via `gh`.
-
-### `/eng:review`
-Iterative review → remediation → re-review until merge-ready. **This is the one to use on your own PRs.**
-```text
-/eng:review                    # current branch vs main
-/eng:review 42                 # PR #42
-/eng:review 42 --depth thorough   # depth of round 1 (default: triage decides)
-/eng:review 42 --max-rounds 5     # default 3
-```
-See [Review cycle in detail](#review-in-detail).
-
-### Planning commands
+### Planning commands (OpenSpec)
 | Command | When |
 |---|---|
-| `/opsx:propose`, `/opsx:apply`, `/opsx:archive` | Projects with OpenSpec (installed by `openspec init --tools claude`) |
+| `/opsx:propose`, `/opsx:apply`, `/opsx:archive` | Projects with OpenSpec (`openspec init --tools claude`). Use `/eng:task` instead of `/opsx:apply` to get one PR per task |
 | "plan this change" → `plan-change` skill | Projects without OpenSpec; plan in chat or `docs/plans/<date>-<slug>.md` |
 
 ---
@@ -243,7 +317,7 @@ Exit when all criteria hold — or stop and ask you
 - A question needs a product/business decision.
 
 ### The ledger
-`openspec/changes/<change>/reviews/ledger.md` (OpenSpec) or `.reviews/<branch>/ledger.md`. One table per round with
+`openspec/changes/<change>/reviews/<branch>/ledger.md` (OpenSpec) or `.reviews/<branch>/ledger.md`. One table per round with
 stable IDs (`R1-3`), a fingerprint and `Seen` count per finding, and statuses
 `OPEN → FIXED → VERIFIED / REOPENED · DECLINED · ANSWERED`. Commit it as the PR's
 audit trail, or add `.reviews/` to `.gitignore`.

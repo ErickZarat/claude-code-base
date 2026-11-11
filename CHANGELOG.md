@@ -3,6 +3,38 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.0.0] — 2026-11-11
+### ⚠️ Breaking — plugin renamed `eng-standards` → `eng`, short commands
+| Old | New |
+|---|---|
+| `/eng-standards:setup` | `/eng:setup` |
+| `/eng-standards:bootstrap-project` | `/eng:bootstrap` |
+| `/eng-standards:definition-of-done` | `/eng:dod` |
+| `/eng-standards:review-cycle` | `/eng:review` |
+| `/eng-standards:pr-review` | `/eng:review-once` |
+
+**Migration (once per machine, then per project):**
+```text
+/plugin uninstall eng-standards@claude-code-base
+/plugin marketplace update claude-code-base
+/plugin install eng@claude-code-base        # user scope
+/eng:setup                                  # in each project: renames the plugin id in .claude/settings.json,
+                                            # installs the PR-title check and the updated workflow rule
+```
+Review ledgers moved to a per-branch folder: `openspec/changes/<change>/reviews/<branch>/ledger.md`.
+
+### Added — ticket tracking, one PR per task
+- `/eng:epic`: OpenSpec change → GitHub epic + one linked ticket (sub-issue) per task, or per section with
+  `--group-by section`. Writes `[ISSUE-n]` into `tasks.md` and a `github.json` mapping; idempotent re-sync;
+  labels `epic`/`task`; `ISSUE-` autolink; offers squash-merge-with-PR-title repo setting.
+- `/eng:task <n|next>`: one ticket → branch `issue-<n>-<slug>` → TDD → `/eng:dod` → `[ISSUE-n]` commits →
+  draft PR `[ISSUE-n] <type>: <task>` (`Closes #n`, `Part of #epic`) → review cycle → ready + verdict comment.
+  `next` picks the first ticket that is not done, still open and has no PR. `--stack` for dependent tickets.
+- `scripts/github_sync.py` (GitHub behind a port; `gh` CLI adapter) with tests on Python 3.9+.
+- Template: `.github/workflows/eng-pr-title.yml` requires PR titles to start with `[ISSUE-n] ` or `[NO-ISSUE] `
+  (title passed via env — no script injection; bots exempt).
+- Rule (`workflow.md`): one branch + PR per ticket, `[ISSUE-n]` on commits and PR titles, DoD + review cycle on every task PR.
+
 ## [1.2.0] — 2026-11-10
 ### Fixed — review-cycle infinite loop (same finding reopened 3×, fixes blocked by the secret guard)
 - Secret guard: heuristic checks (`password = "…"`, `user:pass@host` URLs) are skipped in test files, so tests can
