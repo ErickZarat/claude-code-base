@@ -10,10 +10,11 @@ no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iter
   - `agents/*.md` — reviewer subagents (`requirements-verifier`, `code-reviewer`, `performance-reviewer`, `fix-verifier`);
     default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
   - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
-  - `scripts/github_sync.py` — OpenSpec change → GitHub epic + task issues; `GitHubClient` port, `GhCliClient` adapter.
+  - `scripts/github_sync.py` — OpenSpec change → GitHub milestone/epic + task issues; `GitHubClient` port, `GhCliClient` adapter.
     Tests use a fake client — never call the real GitHub API from tests.
   - `hooks/hooks.json` + `hooks/guard_secrets.py` — PreToolUse secret/destructive-command guard.
-  - `template/` — files plugins cannot distribute (rules, CLAUDE.md, settings.json, pre-commit), copied into projects by `install.sh`.
+  - `template/` — files plugins cannot distribute (rules, CLAUDE.md, settings.json, pre-commit, PR template,
+    `.github` CI checks + `eng_pr_checklist.py`), copied into projects by `install.sh`.
   - `install.sh` — manifest-based installer/updater (bash 3.2 compatible — macOS default shell).
 - `install.sh` (root) — wrapper for clone-based installs.
 - `tests/` — pytest behaviour tests for the hook, installer, scripts and the PR-title workflow. `scripts/validate.py` — static checks.

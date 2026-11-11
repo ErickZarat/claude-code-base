@@ -3,6 +3,23 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [2.1.0] — 2026-11-11
+### Changed
+- `/eng:epic` defaults to **milestone tracking**: one milestone per OpenSpec change plus a `change:<name>` label on
+  every ticket. GitHub's Epic issue type is organization-only, so personal/free repos never showed epics.
+  `--tracking epic` (parent issue + sub-issues) and `--tracking both` remain; changes synced with 2.0 keep epic mode.
+
+### Added
+- PR checklists: `/eng:task` writes *Acceptance criteria* (from the spec scenarios), *Definition of Done* and
+  *Pending decisions* checklists, checks only items proven by tests/DoD results, sets milestone + labels, and keeps
+  the PR draft while anything is open.
+- Template `.github/pull_request_template.md` (project-owned) with the same sections.
+- Template CI `eng-pr-checklist.yml` + `.github/scripts/eng_pr_checklist.py`: a ready PR must link its issue
+  (`Closes #n`) and have every checklist item checked; drafts only get a report.
+- Review cycle: PR checklist is an exit criterion; a checked criterion without a test is a BLOCKER.
+
+Run `/eng:setup` in each project to install the new template files.
+
 ## [2.0.0] — 2026-11-11
 ### ⚠️ Breaking — plugin renamed `eng-standards` → `eng`, short commands
 | Old | New |

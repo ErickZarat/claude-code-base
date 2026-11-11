@@ -40,8 +40,8 @@ Installs rules, CLAUDE.md, settings, pre-commit and the PR-title check, then fil
 **3. Every feature:**
 ```text
 /opsx:propose <what you want>   # plan → you approve proposal, specs and tasks
-/eng:epic                       # GitHub epic + one ticket per task, tagged [ISSUE-n]
-/eng:task next                  # ticket → branch → TDD → DoD → PR "[ISSUE-n] …" → review cycle → ready
+/eng:epic                       # GitHub milestone + one ticket per task, tagged [ISSUE-n]
+/eng:task next                  # ticket → branch → TDD → DoD → PR "[ISSUE-n] …" with checklists → review → ready
   … you merge the PR …
 /clear                          # fresh context for the next ticket
 /eng:task next                  # repeat until the epic is done
@@ -57,7 +57,7 @@ That's it. Everything below is reference.
 |---|---|
 | `/eng:setup` | Install / update the project files (rules, CLAUDE.md, settings, pre-commit, PR-title check) |
 | `/eng:bootstrap` | Fill CLAUDE.md for this repo, prune unused language rules, optional OpenSpec |
-| `/eng:epic [change]` | OpenSpec change → GitHub epic + linked ticket per task |
+| `/eng:epic [change]` | OpenSpec change → GitHub milestone (or parent issue) + one ticket per task |
 | `/eng:task <n\|next>` | One ticket end to end, ending in a reviewed, ready-for-review PR |
 | `/eng:dod` | Definition-of-done check (build, tests, lint, diff, security) |
 | `/eng:review [PR#]` | Review → fix → re-review cycle until merge-ready |
@@ -76,7 +76,7 @@ That's it. Everything below is reference.
 | Step | You do | Claude does |
 |---|---|---|
 | 1. Plan | Describe the change; approve proposal/specs/tasks | Reads the code, asks questions, writes the OpenSpec change. No code before approval |
-| 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the epic and one linked ticket per task, tags `tasks.md`, commits the mapping |
+| 2. Tickets | Run `/eng:epic`; confirm granularity | Creates the milestone and one ticket per task, tags `tasks.md`, commits the mapping |
 | 3. Work a ticket | Run `/eng:task next` | Branch, TDD per behaviour, reuse/interfaces, ticks the task, `/eng:dod`, draft PR, review cycle, marks PR ready, comments the verdict |
 | 4. Decide | Answer escalations; read the PR | Stops and asks on repeated findings, blocked fixes, product decisions |
 | 5. Merge | You merge (squash) | Never approves or merges |
@@ -89,15 +89,21 @@ No OpenSpec in a project? Describe the change, Claude writes a `plan-change` pla
 
 ## Ticket tracking
 
-**Structure on GitHub**
+**Structure on GitHub (default: milestone — works on free personal accounts)**
 ```
-[EPIC] Add refunds (add-refunds)            #42   label: epic   ← one per OpenSpec change
- ├─ 1.1 Add refunds table migration         #43   label: task   ← sub-issue, one per open task
- ├─ 2.1 POST /refunds endpoint              #44
- └─ 2.2 Reject refunds above order total    #45
+Milestone "Add refunds (add-refunds)"   ← one per OpenSpec change: progress bar, optional due date
+ ├─ #43 1.1 Add refunds table migration       labels: task, change:add-refunds
+ ├─ #44 2.1 POST /refunds endpoint            labels: task, change:add-refunds
+ └─ #45 2.2 Reject refunds above order total  labels: task, change:add-refunds
 ```
-The epic body has the proposal summary and a checklist of its tickets. Tasks already `[x]` get no ticket.
-With `--group-by section`, each `## N.` section of `tasks.md` becomes one ticket (its tasks become a checklist).
+Filter everything for a change with `label:change:add-refunds` or open the milestone page. Tasks already `[x]` get
+no ticket. With `--group-by section`, each `## N.` section of `tasks.md` becomes one ticket.
+
+| `--tracking` | What you get | Notes |
+|---|---|---|
+| `milestone` (default) | Milestone + `change:<name>` label | Free accounts, native progress bar |
+| `epic` | Parent issue labelled `epic`, tickets as sub-issues | GitHub's *Epic* issue type is organization-only; this is a normal issue in that role |
+| `both` | Milestone and parent issue | |
 
 **The tag `[ISSUE-<n>]` goes at the start of:**
 | Where | Example |
@@ -106,17 +112,40 @@ With `--group-by section`, each `## N.` section of `tasks.md` becomes one ticket
 | Branch name | `issue-44-post-refunds-endpoint` |
 | Every commit | `[ISSUE-44] feat(refunds): add POST /refunds` |
 | PR title | `[ISSUE-44] feat: POST /refunds endpoint` |
-| PR body | `Closes #44` · `Part of #42` |
+| PR body | `Closes #44` (links the PR under the issue's *Development* and closes it on merge) |
 | Squash-merge commit on `main` | = PR title, so `git log --grep "ISSUE-44"` finds everything |
 
-**What enforces it**
-- `/eng:task` builds branch names and PR titles with the script, so they're always consistent.
-- `.github/workflows/eng-pr-title.yml` (installed by `/eng:setup`) fails any PR whose title doesn't start with
-  `[ISSUE-<n>] ` or `[NO-ISSUE] `. Dependabot/Renovate are exempt. Make it a required check in branch protection.
-- `/eng:epic` offers the repo setting *squash merge, commit title = PR title* so merge commits keep the tag, and adds
-  an autolink so `ISSUE-44` in commits and PRs links to issue #44 (both need repo admin).
-- `openspec/changes/<change>/github.json` stores the change ↔ epic ↔ ticket mapping; re-running `/eng:epic`
-  after editing `tasks.md` only creates tickets for new tasks.
+**Every PR carries its own checklist**
+```markdown
+Closes #44
+Part of milestone: Add refunds (add-refunds)
+
+## Acceptance criteria                         ← from the OpenSpec scenarios this task implements
+- [x] POST /refunds creates a refund — `RefundApiTest#creates refund`
+- [ ] Refund above order total → 422          ← unchecked: not proven by a test yet
+
+## Definition of Done                          ← fixed list from the PR template, checked from /eng:dod results
+- [x] Tests written first (TDD) and passing
+- [x] Build, lint and type checks pass
+…
+## Pending decisions                           ← anything a person must decide; "None" when empty
+- [ ] Allow partial refunds? (PO)
+```
+- `/eng:task` writes this body, checks items **only with evidence** (a passing test or a real DoD result), and keeps
+  the PR as **draft** while anything is unchecked — then tells you exactly what's open and who decides.
+- The review cycle treats a checked criterion without a test as a 🔴 BLOCKER, and an unchecked one as open work.
+- Manual PRs get the same structure from `.github/pull_request_template.md`.
+
+**What enforces it (CI, installed by `/eng:setup`)**
+| Check | Fails when |
+|---|---|
+| `PR title` (`eng-pr-title.yml`) | Title doesn't start with `[ISSUE-<n>] ` or `[NO-ISSUE] ` |
+| `PR checklist` (`eng-pr-checklist.yml`) | A **ready** PR has no `Closes #n`, lacks the Acceptance criteria / DoD sections, or has any unchecked item in them or in Pending decisions. Draft PRs only get the list of pending items |
+
+Make both required checks in branch protection. Dependabot/Renovate are exempt. `[NO-ISSUE]` PRs need no issue link
+or acceptance criteria, only the DoD. `/eng:epic` also offers *squash merge, commit title = PR title* (merge commits
+keep the tag) and adds an `ISSUE-` autolink (both need repo admin). `openspec/changes/<change>/github.json` stores the
+mapping; re-running `/eng:epic` only creates tickets for new tasks.
 
 ---
 
@@ -148,11 +177,13 @@ OpenSpec change → GitHub epic + tickets.
 /eng:epic                          # the active change (asks if there are several)
 /eng:epic add-refunds              # a specific change
 /eng:epic add-refunds --group-by section   # one ticket per "## N." section instead of per task
+/eng:epic add-refunds --tracking both      # milestone + parent issue with sub-issues
 /eng:epic --dry-run                # show what would be created
 ```
 1. Checks `gh` auth, validates the change (`openspec validate`), confirms `tasks.md` is approved.
 2. Suggests `--group-by section` when tasks are tiny or numerous (fewer tickets → fewer PRs).
-3. Previews, creates epic + tickets + sub-issue links + labels (`epic`, `task`) + `ISSUE-` autolink.
+3. Previews, then creates the milestone (and/or parent issue with sub-issues), tickets, labels (`task`, `change:<name>`)
+   and the `ISSUE-` autolink.
 4. Writes `[ISSUE-n]` into `tasks.md` and `github.json`; commits them (or leaves them for the first task PR if `main` is protected).
 5. Offers the squash-merge repo setting. Idempotent: re-run after changing `tasks.md`.
 
@@ -169,9 +200,11 @@ One ticket → one PR, with DoD and the review cycle every time.
 3. Branch `issue-<n>-<slug>` from the latest default branch (asks to wait or stack if it depends on an unmerged ticket).
 4. TDD per behaviour, reuse-first, interfaces; ticks the task in `tasks.md`. Out-of-scope discoveries become proposed new tasks, not extra code.
 5. `/eng:dod` — must pass.
-6. `[ISSUE-n]` commits, push, **draft** PR titled `[ISSUE-n] <type>: <task>` with `Closes #n` / `Part of #epic`.
+6. `[ISSUE-n]` commits, push, **draft** PR titled `[ISSUE-n] <type>: <task>` with `Closes #n`, the milestone and
+   labels, and checklists for acceptance criteria, DoD and pending decisions (see [Ticket tracking](#ticket-tracking)).
 7. Review cycle on the PR (small task PRs → `quick`, 1 reviewer).
-8. Clean exit → PR marked ready + one verdict comment. Escalation → stays draft with the open question. Never merges.
+8. Everything checked with evidence → PR marked ready + one verdict comment. Anything open (pending decision,
+   unproven criterion, escalation) → stays draft with the open items listed. Never merges.
 
 ### `/eng:dod`
 Run before saying a task is finished or opening a PR (`/eng:task` runs it for you).
