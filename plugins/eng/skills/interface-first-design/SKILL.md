@@ -8,7 +8,7 @@ description: Use when adding or changing anything external or replaceable (DB, c
 ## Steps
 1. **Identify the capability** the business code needs, in domain terms — not the technology.
    "Store and fetch invoices", not "talk to Postgres".
-2. **Check for an existing port** (run `reuse-first`). Extend it only if the new methods belong to the same capability.
+2. **Check for an existing port** (search the codebase first). Extend it only if the new methods belong to the same capability.
 3. **Define the port** in the domain/application layer:
    - Name = capability (`InvoiceRepository`, `PaymentGateway`, `FileStorage`, `Clock`).
    - Methods use domain types only. No vendor SDK types, no transport details, no framework annotations.

@@ -56,7 +56,7 @@ No `github.json` lists this issue → no proposal needed:
 
 ## 3b. Plan this ticket (before the first test — 10–15 lines, shown to the user)
 Most review MAJORs are design problems that are cheap to avoid here. Write:
-- **Files** to touch, and the **existing code to reuse** (`path:Symbol`, from `reuse-first`) — plus the matching
+- **Files** to touch, and the **existing code to reuse** (`path:Symbol` — ponytail ladder: in the codebase → stdlib → installed dependency) — plus the matching
   reference pattern from CLAUDE.md *Patterns*.
 - **Ports/adapters** involved (`interface-first-design`), and any contract change (backwards compatible?).
 - **Behaviours = tests**, in TDD order: each acceptance criterion with its scenario ID, plus edge and failure cases
@@ -71,7 +71,7 @@ For a section ticket, work its tasks in order (respecting `after:` inside the se
 one commit `<tag> <type>(<scope>): <task title> (<task key>)`, e.g. `[TASK-50] feat(refunds): add Refund entity (1.2)`.
 
 `tdd` for every acceptance criterion (failing test shown first) — each test carries a marker comment with the
-scenario it proves (`// spec: billing/refund-above-total-is-rejected`); `reuse-first` before new code,
+scenario it proves (`// spec: billing/refund-above-total-is-rejected`); ponytail's ladder before new code,
 `interface-first-design` for anything external; the `decision` skill when you choose between real alternatives;
 contract changes (.proto/OpenAPI/events) stay backwards compatible unless the spec says otherwise.
 Do **not** edit `tasks.md` in a task PR (parallel PRs would conflict on it): the merged PR closes the ticket, and

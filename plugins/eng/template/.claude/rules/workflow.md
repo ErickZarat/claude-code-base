@@ -4,7 +4,6 @@
 - Read the relevant code first. Never edit a file you have not read in this session.
 - Restate the goal in one or two sentences and list the files you expect to touch.
 - If requirements, inputs, edge cases or acceptance criteria are unclear, ASK. Do not invent behaviour.
-- Search for existing code that already solves part of the problem (see `reuse-first` skill).
 - For anything bigger than a single-file fix, produce a plan first (OpenSpec change or `plan-change` skill)
   and wait for approval. Bugs and small fixes from a ticket use the lite path of `/eng:task` (no proposal needed).
 - A choice between real alternatives, or an architecture change, gets a decision record (`decision` skill).
@@ -23,6 +22,12 @@
   or weaken assertions. Fix the cause or report it.
 - If a hook, permission rule or guard blocks an action, never reword or obfuscate to get around it.
   Fix what it flagged, or stop and tell the user. Same error twice in a row → stop and ask.
+
+## Companion plugins (ponytail, pstack)
+- ponytail decides how little code to write; pstack (`/pstack:how`, `why`, `poteto-mode`, `unslop` …) is for debugging and explaining.
+- Where they disagree with these rules, these rules win: TDD for every behaviour, not only non-trivial logic; ports for
+  external dependencies are required structure, not speculative abstraction; public APIs keep their doc comments.
+- Done-ness and reviews: `/eng:dod`, `/eng:review`. pstack's `tdd`, `interrogate`, `arena`, `swarm` only when the user asks.
 
 ## After writing code
 - Run the project's build, tests and linter (commands in CLAUDE.md). Report real output, not assumptions.

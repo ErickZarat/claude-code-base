@@ -21,7 +21,7 @@ One or two sentences. What changes for the user/system.
 What this change deliberately does not do.
 
 ## Approach
-- Existing code reused/extended (from `reuse-first`):
+- Existing code reused/extended:
 - New ports/adapters (from `interface-first-design`):
 - Data/schema changes and migration strategy:
 - Security considerations (auth, input validation, secrets, PII):

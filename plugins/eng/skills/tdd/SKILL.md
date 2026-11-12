@@ -23,7 +23,7 @@ including edge cases and failure paths. Each becomes one cycle. Order them simpl
 - Run the test, then the related test class/module. Paste the result. All green before moving on.
 
 ## 3. REFACTOR — with a green safety net
-- Remove duplication, improve names, extract to existing shared code (`reuse-first`), put external calls behind ports
+- Remove duplication, improve names, extract to existing shared code, put external calls behind ports
   (`interface-first-design`).
 - Run the tests again. Still green. Behaviour unchanged.
 

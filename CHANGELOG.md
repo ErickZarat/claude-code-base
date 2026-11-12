@@ -3,6 +3,21 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [3.1.0] — 2026-11-12
+### Added — companion plugins
+- The project template enables **ponytail** (`ponytail@ponytail`, least code that works) and **pstack**
+  (`pstack@cursor-plugins`, debugging/explaining skills) for every contributor via `.claude/settings.json`.
+  `/eng:setup` offers to add them to an existing `settings.json`.
+- Workflow rule: where ponytail/pstack disagree with eng, eng wins (TDD for every behaviour, ports are required
+  structure, doc comments on public APIs); pstack's multi-agent skills only on request.
+### Removed — duplicated by ponytail
+- `reuse-first` skill and the code-quality lines it duplicated (search before writing, no premature abstraction,
+  why-not-how comments).
+### Changed
+- Template CLAUDE.md non-negotiables: least code (ponytail) and the single review round.
+### Migration
+- Re-run `/eng:setup` and accept the `settings.json` additions (or install both plugins at user scope). Needs `node`.
+
 ## [3.0.0] — 2026-11-11
 ### Changed — one PR per section, one review round per PR (≈ a fraction of the review tokens)
 - **`/eng:epic` default granularity is now a `## N.` section of `tasks.md`**: one ticket = one branch = one PR; the

@@ -32,7 +32,7 @@ Walk the diff once, top to bottom. Fix what you find; don't report it. Skip line
 
 ## Design
 - Infrastructure behind an interface (port); no vendor types leaking through it; no business logic in controllers/adapters.
-- No duplicated logic — reused existing code (`reuse-first`) and followed the project's reference patterns (CLAUDE.md).
+- No duplicated logic — reused existing code (codebase → stdlib → installed dependency) and followed the project's reference patterns (CLAUDE.md).
 - Type design: invariants enforced by types/constructors, encapsulation (no public mutable state); no needless complexity — simplify.
 
 ## Readability

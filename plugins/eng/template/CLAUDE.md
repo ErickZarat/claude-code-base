@@ -28,7 +28,7 @@ Minimum review depth: standard
 <!-- standard (default: every dedicated reviewer) | thorough (same reviewers on opus — auth/payments-heavy code).
      quick (one combined reviewer) is never chosen automatically. -->
 
-## Patterns (copy these — `reuse-first` and the task plan look here first)
+## Patterns (copy these — the task plan looks here first)
 TODO: `- <what> → path`, e.g. `- paginated repository → src/main/kotlin/.../OrderRepository.kt`
 
 ## Layout
@@ -47,11 +47,11 @@ TODO: where domain code, adapters, config, tests and migrations live.
 ## Non-negotiables (details in .claude/rules/)
 1. No vibe coding: understand → plan → small verified steps. Ask when requirements are ambiguous.
 2. TDD always: failing test first, then minimum code, then refactor (`tdd` skill).
-3. Reuse before you write: search the codebase first (`reuse-first` skill).
+3. Write the least code that works: reuse the codebase, stdlib and installed dependencies first (ponytail).
 4. Depend on interfaces, not implementations (`interface-first-design` skill).
 5. Never write, print, log or commit secrets. No backdoors, debug bypasses or hidden flags.
-6. A task is done only when `dod` passes. Changes are merge-ready only after `/eng:review`
-   (review → fix → re-review rounds) exits clean: no open blockers, every requirement implemented and tested.
+6. A task is done only when `dod` passes. A PR is ready only after one `/eng:review` round: chosen findings fixed and
+   confirmed by gates + self-check, every requirement implemented and tested, unfixed blockers listed as pending.
 
 ## Project-specific gotchas
 TODO: things that are not obvious from the code (generated files, legacy modules, shared libs).

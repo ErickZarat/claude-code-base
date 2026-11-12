@@ -1,7 +1,8 @@
 # claude-code-base
 
 Personal Claude Code plugin marketplace that distributes engineering standards to every project:
-no vibe coding, TDD, reuse-first, interface-first design, secret guard, and iterative PR review cycles.
+no vibe coding, TDD, interface-first design, secret guard, and one review round per PR.
+Companion plugins ponytail (minimal code) and pstack (debugging/explaining) are enabled by the template; do not duplicate them.
 
 ## Layout
 - `.claude-plugin/marketplace.json` — marketplace catalog (name `claude-code-base`).

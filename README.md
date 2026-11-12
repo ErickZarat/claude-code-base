@@ -13,6 +13,7 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 - [Spec-driven extras (on top of OpenSpec)](#spec-driven-extras-on-top-of-openspec)
 - [Command reference](#command-reference)
 - [Skills Claude uses automatically](#skills-claude-uses-automatically)
+- [Companion plugins: ponytail and pstack](#companion-plugins-ponytail-and-pstack)
 - [Reviewer agents](#reviewer-agents)
 - [Review cycle in detail](#review-cycle-in-detail)
 - [Rules](#rules)
@@ -31,8 +32,13 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 /plugin marketplace add ErickZarat/claude-code-base
 /plugin install eng@claude-code-base                         # choose "user" scope → works in every project
 /plugin install security-guidance@claude-plugins-official
+/plugin marketplace add DietrichGebert/ponytail      # companion: least code that works
+/plugin install ponytail@ponytail
+/plugin marketplace add cursor/plugins               # companion: pstack (debug, explain, unslop)
+/plugin install pstack@cursor-plugins
 ```
-Needs `gh auth login` (private repo, tickets, PRs). Type `/eng:` to confirm the commands appear.
+Projects set up with `/eng:setup` also enable ponytail and pstack for every teammate (`.claude/settings.json`).
+ponytail's hooks need `node` on PATH. Needs `gh auth login` (private repo, tickets, PRs). Type `/eng:` to confirm the commands appear.
 
 **2. Once per project:**
 ```text
@@ -362,15 +368,33 @@ See [Review cycle in detail](#review-cycle-in-detail).
 ## Skills Claude uses automatically
 
 You don't need to call these; the rules and skill descriptions make Claude use them at the right moment.
-You can still ask for them by name ("use the tdd skill", "run reuse-first for this").
+You can still ask for them by name ("use the tdd skill"). Choosing the least code (reuse → stdlib → dependency → one
+line) is ponytail's job — see [Companion plugins](#companion-plugins-ponytail-and-pstack).
 
 | Skill | Triggers when | What it enforces |
 |---|---|---|
 | `tdd` | Implementing any feature, change or bug fix | One failing test (shown failing) → minimum code (shown passing) → refactor. Code written before its test is deleted |
-| `reuse-first` | Before creating any function, class, DTO, constant, utility or dependency | Searches by intent and states `REUSE` / `EXTEND` / `EXTRACT` / `NEW` with a reason |
 | `interface-first-design` | Adding anything external or replaceable (DB, cache, queue, API, storage, payments, clock…) | Port in the domain, adapter in infrastructure, DI wiring, fake + integration + contract tests |
 | `plan-change` | Change bigger than one file, no `openspec/` folder | Goal, out of scope, approach, TDD-ordered steps, risks — then waits for approval |
 | `secure-self-review` | Code touching input, auth, data, config, secrets, network, deps; always in done/review | gitleaks / semgrep / dependency audit if installed + manual checklist; HIGH/CRITICAL fixed before done |
+
+---
+
+## Companion plugins: ponytail and pstack
+
+eng is the process (specs → tickets → TDD → DoD → review → PR). Two plugins cover the rest, and eng no longer
+duplicates them:
+
+| Plugin | What it brings | Replaced in eng |
+|---|---|---|
+| [ponytail](https://github.com/DietrichGebert/ponytail) | Always on (hook): need it? → already in the codebase? → stdlib → installed dependency → one line → minimum code. Comments say why, not how. `/ponytail lite\|full\|ultra\|off`, `/ponytail-review` (delete list for a diff), `/ponytail-audit` | `reuse-first` skill; the "search first / no premature abstraction / why-not-how" rule lines |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | Manual skills: `/pstack:poteto-mode` (reproduce → root cause → smallest fix → re-run), `/pstack:how`, `/pstack:why`, `/pstack:teach`, `/pstack:unslop`, `/pstack:architect` … | nothing — eng had no equivalent |
+
+Where they disagree, the eng rules win (`.claude/rules/workflow.md`): TDD for every behaviour (pstack's `tdd` is
+"only when asked", ponytail tests only non-trivial logic); ports for external dependencies are required structure, not
+speculative abstraction — so read `/ponytail-audit` "single-implementation interface" findings with that in mind;
+public APIs keep their doc comments (pstack's `no-comments` would strip them). Reviews stay `/eng:review`;
+pstack's `interrogate`, `arena` and `swarm` spawn many agents — use them only for decisions that deserve it.
 
 ---
 

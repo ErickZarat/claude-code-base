@@ -2,12 +2,29 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "extraKnownMarketplaces": {
     "claude-code-base": {
-      "source": { "source": "github", "repo": "ErickZarat/claude-code-base" }
+      "source": {
+        "source": "github",
+        "repo": "ErickZarat/claude-code-base"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "cursor-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "cursor/plugins"
+      }
     }
   },
   "enabledPlugins": {
     "eng@claude-code-base": true,
-    "security-guidance@claude-plugins-official": true
+    "security-guidance@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "pstack@cursor-plugins": true
   },
   "permissions": {
     "ask": [

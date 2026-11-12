@@ -48,7 +48,7 @@ def test_fresh_install_creates_rules_seeds_manifest_and_gitignore(plugin_copy, p
     assert (project / ".claude/settings.json").is_file()
     assert (project / ".pre-commit-config.yaml").is_file()
     assert SAMPLE_RULE in (project / ".claude/.eng-standards-manifest").read_text()
-    assert (project / ".claude/.eng-standards-version").read_text().strip() == "3.0.0"
+    assert (project / ".claude/.eng-standards-version").read_text().strip() == "3.1.0"
     gitignore = (project / ".gitignore").read_text().splitlines()
     assert "node_modules" in gitignore and ".env" in gitignore and "*.eng-new" in gitignore
     assert ".reviews/*/packet.md" in gitignore and "openspec/changes/*/reviews/*/packet.md" in gitignore
@@ -170,3 +170,26 @@ def test_existing_pr_template_is_project_owned(plugin_copy, project):
     run_installer(plugin_copy, str(project))
 
     assert template.read_text() == "our own template\n"
+
+
+# Companion plugins: eng leaves minimal-code and debugging workflows to ponytail and pstack.
+COMPANION_MARKETPLACES = {
+    "ponytail": "DietrichGebert/ponytail",
+    "cursor-plugins": "cursor/plugins",
+}
+COMPANION_PLUGINS = ("ponytail@ponytail", "pstack@cursor-plugins")
+
+
+def test_template_settings_enable_companion_plugins():
+    import json
+
+    settings = json.loads((PLUGIN_DIR / "template/.claude/settings.json").read_text())
+    for marketplace, repo in COMPANION_MARKETPLACES.items():
+        assert settings["extraKnownMarketplaces"][marketplace]["source"] == {"source": "github", "repo": repo}
+    for plugin in COMPANION_PLUGINS:
+        assert settings["enabledPlugins"][plugin] is True
+
+
+def test_duplicated_reuse_first_skill_is_gone():
+    # ponytail's decision ladder (need it? → in the codebase? → stdlib → dependency) replaces it.
+    assert not (PLUGIN_DIR / "skills/reuse-first").exists()
