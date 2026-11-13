@@ -91,7 +91,24 @@ Re-review rounds (the loop below) run only when the user passes `--max-rounds N`
 `--auto` (only when the user asked for it) skips this checkpoint, fixing BLK, MAJ, Q and MIN; stop conditions still apply.
 
 ### Round N — Remediation (author) — only the IDs the user chose
-Work through the chosen findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGGESTION:
+Work through the chosen findings in order BLOCKER → MAJOR → QUESTION → MINOR → SUGGESTION.
+
+**Every BLOCKER/MAJOR gets a fix brief before any edit** — the flagged line is where the problem showed, rarely where
+it lives. Write it in the ledger under `## Fix briefs` → `#### <ID>`:
+```markdown
+#### R1-MAJ-2
+- Fails when: <input/state> → <wrong outcome>; expected <correct outcome>   (the reviewer's scenario, made concrete)
+- Root cause: <why the code allowed it — ask "why" until you reach where the rule SHOULD be enforced>
+- Same class elsewhere: <every other place in the change/module with this problem class, or "none — searched <how>">
+- Fix site: <the ONE place that enforces it for all callers: shared validator, type/constructor, port, query builder>
+- Tests: `<reviewer's scenario>` (failed first: yes), `<a variant: other input/endpoint/path>` (failed first: yes)
+- Previous fix missed: <only when Seen ≥ 2 — why the last fix didn't hold>
+```
+Then: write both tests and show them failing → fix at the fix site (and every place in *Same class elsewhere*) →
+show them passing → re-read the finding and confirm each claim in it is addressed. A finding you cannot reproduce
+with a failing test is not understood yet — ask the user or the reviewer's text, never guess-fix.
+Before marking any BLK/MAJ FIXED run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/fix_brief_check.py" <ledger>`; it must exit 0.
+
 - **Bugs / missing behaviour / missing tests:** TDD — write a failing test that reproduces the finding, show it fail,
   fix, show it pass (`tdd` skill). Never weaken an existing test to resolve a finding.
 - **Questions:** answer from code/spec. If the answer needs a product or business decision, ask the user and pause the loop.
@@ -117,6 +134,7 @@ into the conversation; reference the ledger. If the session is long before start
 
 ## Exit criteria — single round (default)
 - [ ] Build, full test suite, lint and the `self-check` pass after remediation.
+- [ ] `fix_brief_check.py <ledger>` exits 0 (every fixed BLK/MAJ has its brief and a test that failed first).
 - [ ] Every finding the user chose is `FIXED (self-verified)` with a commit ref; every Q is answered.
 - [ ] BLOCKER/MAJOR findings the user chose not to fix stay `OPEN` and are listed in the PR's *Pending decisions*
       (so the PR stays draft until someone decides) — never silently dropped.

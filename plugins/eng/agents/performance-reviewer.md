@@ -31,6 +31,7 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 ```
 | Sev | Location | Problem | Impact at expected scale | Fix |
 Sev codes: BLK · MAJ · MIN · S · Q — the caller turns them into IDs `R<round>-<code>-<n>`.
+Every BLK/MAJ states its failing scenario: `when <input/state> → <wrong outcome>; expected <correct>`, and the problem class.
 Sev: 🟠 MAJOR (hurts at expected scale; 🔴 BLOCKER if it breaks a stated NFR) · 🟡 MINOR · 💡 SUGGESTION
 Verdict: OK / NEEDS CHANGES
 ```

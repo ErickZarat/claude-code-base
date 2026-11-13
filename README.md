@@ -481,6 +481,22 @@ Exit when all criteria hold — or stop and ask you
 - **Author** — your session; fixes in order 🔴 → 🟠 → ❓ → 🟡 → 💡, bugs via a failing test first, commits as
   `[TASK-44] fix(review): R1-MAJ-3 …`. It cannot verify its own fixes.
 
+### Fixing a blocker or major: the fix brief
+Patching the line a reviewer pointed at is how the same major comes back next round. Before editing, each chosen
+🔴/🟠 gets a short brief in the ledger: the failing scenario, the root cause (where the rule *should* be enforced),
+every other place with the same problem class, the one fix site, and two tests — the reviewer's scenario and a
+variant — shown failing first. A finding seen twice also says why the last fix missed. `fix_brief_check.py <ledger>`
+must pass before anything is marked FIXED:
+
+```markdown
+#### R1-MAJ-2
+- Fails when: refund amount 0 via the queue → 201 Created; expected 422
+- Root cause: amount validated in the controller only; the consumer path bypasses it
+- Same class elsewhere: RefundConsumer.kt:40, PartialRefundHandler.kt:22
+- Fix site: Money value object rejects non-positive amounts in its constructor
+- Tests: `rejects zero refund` (failed first: yes), `consumer rejects zero refund` (failed first: yes)
+```
+
 ### Exit criteria — single round (default)
 - Build, full tests, lint and the self-check green on the final commit.
 - Every chosen finding `FIXED (self-verified)` with its commit; 🔴/🟠 left open are listed in the PR's Pending decisions

@@ -13,7 +13,7 @@ Companion plugins ponytail (minimal code) and pstack (debugging/explaining) are 
     default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
   - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
   - `scripts/openspec_model.py` (shared parser) · `spec_lint.py` · `trace.py` (scenario ↔ test) · `decisions.py` ·
-    `findings_report.py` (retro). `openspec/config-rules.yaml` — `[eng]` rules merged into projects' openspec/config.yaml.
+    `findings_report.py` (retro) · `fix_brief_check.py` (BLK/MAJ fixes need root cause + failing test). `openspec/config-rules.yaml` — `[eng]` rules merged into projects' openspec/config.yaml.
   - `scripts/github_sync.py` — OpenSpec change → GitHub milestone/epic + task issues; `GitHubClient` port, `GhCliClient` adapter.
     Tests use a fake client — never call the real GitHub API from tests.
   - `hooks/hooks.json` + `hooks/guard_secrets.py` — PreToolUse secret/destructive-command guard.

@@ -3,6 +3,16 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [3.2.0] — 2026-11-13
+### Changed — remediation fixes the cause, not the flagged line
+- Every chosen BLOCKER/MAJOR gets a **fix brief** in the ledger before any edit: failing scenario, root cause, same
+  problem class elsewhere, one fix site, and two tests (reviewer's scenario + a variant) shown failing first.
+  A finding seen twice also records why the previous fix missed.
+- New `scripts/fix_brief_check.py <ledger>`: exits 1 for any fixed BLK/MAJ without a complete brief; part of the
+  single-round exit criteria.
+- code, security and performance reviewers state a concrete failing scenario (`when … → …; expected …`) for every
+  BLK/MAJ, so the author has something testable.
+
 ## [3.1.0] — 2026-11-12
 ### Added — companion plugins
 - The project template enables **ponytail** (`ponytail@ponytail`, least code that works) and **pstack**

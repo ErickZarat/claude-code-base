@@ -65,6 +65,7 @@ If the caller gives a ledger, match each finding against ALL its rows by fingerp
 ```
 | Sev | Area | Location | Finding | Fix |
 Sev codes: BLK · MAJ · MIN · S · Q — the caller turns them into IDs `R<round>-<code>-<n>`.
+Every BLK/MAJ states its failing scenario: `when <input/state> → <wrong outcome>; expected <correct>`, and the problem class.
 Exploitable security issue or leaked secret = BLK. Untested new behaviour = BLK.
 Checked: <the areas 0–8 you covered this round, e.g. "0,1,2,3,4,5,6,7,8">
 ```
