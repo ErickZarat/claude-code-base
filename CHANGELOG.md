@@ -3,6 +3,28 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [3.3.0] — 2026-11-13
+### Changed — get the code right before review (from a 99-finding, 5-round PR)
+- **PR size budget (~600 changed lines):** `spec_lint` estimates each section from task sizes and warns above it;
+  new `scripts/pr_size.py` (lockfiles, snapshots, golden files and build output excluded; `ENG_PR_MAX_LINES`) runs in
+  `/eng:dod` and stops an oversized PR with a per-folder breakdown to split by.
+- **Pre-review once per PR:** new `pre-reviewer` agent (sonnet, fresh context) reads the whole PR with the self-check
+  list and the plan's out-of-scope list before it opens; findings go in the ledger as round 0 and are fixed first.
+- **Light self-check per task:** gates, mutation tests on the touched files (PIT / Stryker / mutmut), a quick look at
+  the task diff. New CLAUDE.md row *Mutation tests*.
+- **Fixes stay small:** the checkpoint's recommended choice puts minors in one follow-up issue (`DEFERRED → #n`);
+  a minor fix only edits existing code (no new module, config, logging channel, workflow or dependency).
+- **Plan:** *Out of scope* (copied into a new PR-body section), *Known traps* from `learned.md` and past ledgers, and a
+  size estimate.
+- **Review depth:** `pr-review-toolkit` agents only at `--depth thorough`; standard runs the four dedicated reviewers
+  (they duplicated findings).
+- **Truthful comments:** rule + checklist item — comments, README and PR text claim only what code or a test shows.
+- `/eng:setup` proposes a static-analysis + mutation profile per stack (Kotlin: detekt, ktlint, Konsist, PIT ·
+  TypeScript: typescript-eslint strict, knip, dependency-cruiser, Stryker · Python: ruff, import-linter, mutmut).
+- `/eng:task` suggests `/eng:retro` after the change's last ticket.
+### Migration
+- Re-run `/eng:setup` for the new CLAUDE.md row, rule line and PR template section; fill *Mutation tests*.
+
 ## [3.2.0] — 2026-11-13
 ### Changed — remediation fixes the cause, not the flagged line
 - Every chosen BLOCKER/MAJOR gets a **fix brief** in the ledger before any edit: failing scenario, root cause, same

@@ -14,6 +14,6 @@ rules:
     - "[eng] For each significant choice between real alternatives, list the options and the decision, and record it in docs/decisions/ (decision skill)."
   tasks:
     - "[eng] One '## N.' section = one PR: a coherent, reviewable deliverable (roughly 1–3 days, a few hundred changed lines). Tasks inside a section are its commits, each named after the behaviour it delivers; tests are part of each task (TDD), never a separate 'write tests' task."
-    - "[eng] Sections should be independent where possible so several devs can work in parallel; put cross-section dependencies on the task that needs them: '(after: 1.2)'."
+    - "[eng] Keep each section under ~600 changed lines (sizes S≈100, M≈250, L≈500 — spec_lint warns above that); a bigger one is two sections. Sections should be independent where possible so several devs can work in parallel; put cross-section dependencies on the task that needs them: '(after: 1.2)'."
     - "[eng] Annotate dependencies and size: '- [ ] 2.1 POST /refunds (after: 1.2; size: S)'. Sizes S/M/L; split anything L."
     - "[eng] Every requirement is covered by at least one task; add '(req: <Requirement name>)' when the title doesn't make it obvious."

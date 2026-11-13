@@ -54,7 +54,7 @@ Location: `openspec/changes/<change>/reviews/<branch-name>/ledger.md` if an Open
 ## Round 2 — <date> — scope: TARGETED — verdict: APPROVE
 | R2-MAJ-4 | RefundRepository · unbounded query | perf | Repo.kt:88 | findAll loads every refund | 1 | VERIFIED | paginated, test `pages refunds` (def456) |
 
-Statuses: OPEN → FIXED (self-verified) [single round] · FIXED (author) → VERIFIED / REOPENED (next round) · DECLINED · ANSWERED · SUPERSEDED → <ID>
+Statuses: OPEN → FIXED (self-verified) [single round] · FIXED (author) → VERIFIED / REOPENED (next round) · DECLINED · ANSWERED · DEFERRED → #<issue> · SUPERSEDED → <ID>
 ```
 
 ## Default: one review round per PR (`--max-rounds 1`)
@@ -80,8 +80,9 @@ Re-review rounds (the loop below) run only when the user passes `--max-rounds N`
 1. Show the user the round report in full — every finding as a row with its ID, area, location, the problem in one
    line and the proposed fix — plus the **Coverage** section. Never summarise as "found some issues".
 2. Ask one question (use the AskUserQuestion tool when available; otherwise ask in text) and **end your turn**:
-   - **Fix required** — every BLK and MAJ, and answer every Q (MIN and S stay open for later)
-   - **Fix required + minors** — also every MIN; S only if trivial
+   - **Fix required, ticket the minors** (recommended) — every BLK and MAJ, answer every Q; MIN and S go to ONE
+     follow-up issue (`gh issue create` listing their IDs and rows, linked from the PR) and become `DEFERRED → #<n>`
+   - **Fix required + minors** — also every MIN; S only if trivial (minor-fix rule below)
    - **Choose** — the user lists IDs to fix, and may decline others with a reason
    - **Stop here** — leave the ledger as is; report what is still open
 3. Do not edit any file until the user answers. Record the decision in the ledger under the round
@@ -114,6 +115,9 @@ Before marking any BLK/MAJ FIXED run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/fix
 - **Questions:** answer from code/spec. If the answer needs a product or business decision, ask the user and pause the loop.
   If the answer reveals a problem, convert it into a new finding with a severity.
 - **Minor / suggestions:** fix, or DECLINE with a concrete reason (scope, trade-off, conflicts with spec). No silent ignores.
+  **Minor-fix rule:** a MIN/S fix only changes existing code (about 20 lines at most) — no new module, config option,
+  logging channel, workflow or dependency. Bigger → `DEFERRED → #<follow-up issue>`. New code added by fixes is where
+  later rounds find new problems.
 - **Disagreement on a BLOCKER/MAJOR:** do not decline it yourself — write your reasoning in the ledger and ask the user to decide.
 - Commit per finding or per logical group, ticket tag first: `[TASK-44] fix(review): R1-BLK-1 add refund limit test and validation`.
 - Run the gates (build, tests, lint) after remediation. Mark items FIXED with commit refs.

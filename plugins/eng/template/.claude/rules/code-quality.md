@@ -10,6 +10,7 @@
 
 ## Comments (the "why, not how" rule comes from ponytail)
 - Write comments for a teammate reading the code in a year: plain language, links to specs/tickets where useful.
+- A comment, README or PR line claims only what the code or a test shows ("exact", "never", "safe" need a test).
 - Public APIs (interfaces, public classes/functions, endpoints) get doc comments: purpose, parameters, return, errors thrown.
 - Do not narrate obvious code (`// increment i`). Do not leave AI chatter ("Here is the updated function…").
 - Keep comments true: update or delete them when the code changes.

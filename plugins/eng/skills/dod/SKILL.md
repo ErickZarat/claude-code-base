@@ -14,7 +14,17 @@ A task is NOT done until every item below passes or is explicitly reported as fa
 Paste the real result (pass/fail counts or the error), not "should work".
 
 ## 2. Self-check
-- [ ] Run the `self-check` skill (the reviewers' checklist applied to your own diff) and fix everything it finds.
+- [ ] Per task (during `/eng:task`): the light `self-check` — gates, mutation tests on touched files, a quick look
+      at the task's diff.
+- [ ] **Before opening or updating the PR — once per PR, not per task:**
+  1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/pr_size.py" --base <default-branch>` — over budget → stop, show the
+     breakdown and propose how to split the PR (one PR per part). Don't open an oversized PR without the user's OK.
+  2. PRs over ~150 changed lines: build the packet (`review_packet.py --base <default-branch> --out
+     .reviews/<branch>/packet.md`) and launch the **`pre-reviewer`** agent with the packet path, the ticket plan (with
+     its *Out of scope*) and the ledger path. Record its table in the ledger as `## Round 0 — pre-review`.
+     Smaller PRs: the light self-check over the whole diff is enough.
+  3. Fix every BLK/MAJ/MIN it found (bugs → failing test first; S optional), re-run the gates, mark rows FIXED.
+     Its findings are yours to fix, not a review round — no checkpoint, no re-run of the pre-reviewer.
 - [ ] TDD was followed: every new behaviour has a test that was seen failing before the code existed.
 - [ ] Every requirement / acceptance criterion is implemented and tested (for OpenSpec scenarios: `spec:` markers).
 - [ ] Docs/README/`.env.example`/OpenSpec specs updated if behaviour or configuration changed.

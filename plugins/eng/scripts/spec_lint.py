@@ -36,6 +36,10 @@ STOP_WORDS = {"with", "from", "that", "this", "when", "then", "shall", "must", "
               "support", "allow", "system", "user", "users", "data", "able"}
 LARGE_SIZES = {"L", "XL"}
 MIN_TASKS_FOR_CHAIN_WARNING = 3
+# Rough changed lines per task size (tests included). A section is one PR; above the budget, review quality drops.
+LINES_PER_SIZE = {"S": 100, "M": 250, "L": 500, "XL": 800}
+LINES_UNSIZED = 150
+PR_LINE_BUDGET = 600
 
 
 class Report:
@@ -132,11 +136,29 @@ def plan_lines(title: str, units: list[Task]) -> tuple[list[str], int, int]:
     return lines, max_parallel, sum(len(keys) for keys in levels)
 
 
+def section_estimates(tasks: list[Task]) -> dict[str, int]:
+    """Open tasks' sizes summed per section ('1.2' → section '1')."""
+    estimates: dict[str, int] = {}
+    for task in tasks:
+        if task.done:
+            continue
+        section = task.key.split(".", 1)[0]
+        estimates[section] = estimates.get(section, 0) + LINES_PER_SIZE.get((task.size or "").upper(), LINES_UNSIZED)
+    return estimates
+
+
 def describe_plan(tasks: list[Task], tasks_file: Path, report: Report) -> None:
     """Dependency levels for tasks (commit order) and sections (one PR each — what devs can do in parallel)."""
     task_lines, _, _ = plan_lines("Plan (open tasks by dependency level — same level can run in parallel):", tasks)
     section_lines, max_parallel, open_sections = plan_lines("PR plan (one PR per section):", parse_sections(tasks_file))
+    estimates = section_estimates(tasks)
+    if estimates:
+        section_lines.append("  estimated size: " + " · ".join(f"section {key}: ~{lines} lines" for key, lines in estimates.items()))
     report.plan.extend(task_lines + section_lines)
+    for key, lines in estimates.items():
+        if lines > PR_LINE_BUDGET:
+            report.warn(tasks_file, None, f"section {key} is estimated at ~{lines} changed lines (PR budget "
+                                          f"{PR_LINE_BUDGET}) — split it into smaller sections, one PR each")
     if max_parallel == 1 and open_sections >= MIN_TASKS_FOR_CHAIN_WARNING:
         report.warn(tasks_file, None, "sections form a single chain — only one PR (one dev) can be in progress at a "
                                       "time; check whether every cross-section 'after:' is a real dependency")

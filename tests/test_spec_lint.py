@@ -185,3 +185,22 @@ def test_done_tasks_are_left_out_of_the_plan(tmp_path):
     tasks = "## 1. Refunds\n- [x] 1.1 Refund creation a\n- [ ] 1.2 Refund creation b (after: 1.1)\n- [ ] 1.3 Refund creation c\n"
     output = lint(make_change(tmp_path, tasks=tasks)).stdout
     assert "level 1: 1.2, 1.3" in output
+
+
+# --- v3.3: a section is one PR, so its estimated size must stay reviewable ------------------------
+
+def test_section_estimated_over_the_pr_budget_is_warned(tmp_path):
+    tasks = "## 1. Renderer\n" + "".join(f"- [ ] 1.{n} Part {n} (size: M)\n" for n in range(1, 4))
+    output = lint(make_change(tmp_path, tasks=tasks)).stdout
+    assert "section 1 is estimated at ~750 changed lines" in output
+    assert "split it" in output
+
+
+def test_section_within_the_budget_is_not_warned(tmp_path):
+    output = lint(make_change(tmp_path)).stdout  # M + S = ~350 lines
+    assert "estimated at" not in output
+
+
+def test_pr_plan_shows_each_section_estimate(tmp_path):
+    output = lint(make_change(tmp_path)).stdout
+    assert "section 1: ~350 lines" in output

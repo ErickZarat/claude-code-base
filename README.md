@@ -208,10 +208,13 @@ each) come back mostly clean — fewer rounds is where the tokens are saved.
 
 | Step | When | What it does |
 |---|---|---|
-| **Task plan** | `/eng:task`, before the first test | 10–15 lines: files, existing code to reuse, reference pattern, ports, tests in TDD order incl. edge/failure cases, NFR targets, open questions. Design-level MAJORs are avoided here |
+| **Small PRs** | `/eng:spec` (section estimate) · `/eng:dod` (`pr_size.py`) | A section/PR stays under ~600 changed lines (lockfiles, snapshots, golden files excluded; `ENG_PR_MAX_LINES` overrides). Findings grow with the diff — a 3,000-line PR gets ~50 in round 1 |
+| **Task plan** | `/eng:task`, before the first test | Files, existing code to reuse, reference pattern, ports, tests in TDD order incl. edge/failure cases, NFR targets, **out of scope** (copied to the PR body), **known traps** from `learned.md`/past ledgers, size estimate, open questions |
 | **Reference patterns** | CLAUDE.md *Patterns* (filled by `/eng:bootstrap`) | Canonical files in your repo to copy: paginated repository, validated controller, adapter with timeout, good test |
 | **Static analysis** | `/eng:bootstrap` sets it up; every build runs it | detekt/ktlint, ESLint strict, ruff, semgrep packs — mechanical minors fail the build during TDD instead of costing a review round |
-| **Self-check** | `self-check` skill, run by `/eng:dod` before the PR | Gates, then the author walks the diff with `checklists/self-check.md` — the **same checklist the reviewers use** (a test keeps them in sync). Same session, no extra agents |
+| **Light self-check** | after each task's commit | Gates, **mutation tests** on the touched files (a test that survives a broken line proves nothing), a quick look at the task diff. Same session, no agents |
+| **Pre-review** | `/eng:dod`, **once per PR** (PRs over ~150 lines) | The `pre-reviewer` agent (sonnet, fresh context) reads the whole PR with `checklists/self-check.md` — the **same checklist the reviewers use** — and the plan's out-of-scope list. Its findings go in the ledger as round 0 and the author fixes them before opening the PR. It costs far less than an in-session check in a long session, and it doesn't share the author's assumptions |
+| **Fixes stay small** | review checkpoint | Default choice: fix BLK/MAJ, put minors in one follow-up issue (`DEFERRED → #n`). A minor fix only edits existing code — new code added by fixes is what later rounds find problems in |
 | **Measure** | `/eng:retro` | Average rounds per PR, clean first rounds, first-round findings per 100 changed lines; recurring lintable findings become lint/semgrep rules |
 
 ---
@@ -314,7 +317,8 @@ One ticket (a `## N.` section) → one PR, with DoD and one review round every t
    unproven criterion, escalation) → stays draft with the open items listed. Never merges.
 
 ### `/eng:dod`
-Run before saying a task is finished or opening a PR (`/eng:task` runs it for you).
+Run before saying a task is finished or opening a PR (`/eng:task` runs it for you). Once per PR it also checks the
+PR size (`pr_size.py`, split if over budget) and runs the `pre-reviewer` agent on the whole PR.
 Checks: build, tests, lint (real output) · diff only touches the task · no debug code/TODOs · reuse applied ·
 interfaces for external deps · TDD followed · every requirement implemented · docs/.env.example updated ·
 `secure-self-review` passed. Ends with a `Done / Changed / Verified / Security / Follow-ups` summary; failures go at the top.
@@ -345,8 +349,8 @@ See [Review cycle in detail](#review-cycle-in-detail).
 
    | Depth | Reviewers | When |
    |---|---|---|
-   | `standard` (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + installed `pr-review-toolkit` agents (sonnet) | Every PR |
-   | `thorough` | the same reviewers on **opus** | Auth, payments, migrations, public APIs |
+   | `standard` (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` (sonnet) | Every PR |
+   | `thorough` | the same reviewers on **opus**, plus installed `pr-review-toolkit` agents | Auth, payments, migrations, public APIs |
    | `quick` | `code-reviewer` alone (covers requirements, security, efficiency itself) | **Only when you explicitly ask** |
 
    Triage never removes a reviewer; it only adds *focus hints* (e.g. "security focus: yes"). Every check is covered
@@ -411,6 +415,7 @@ answer with tables only.
 | `performance-reviewer` | sonnet (opus in thorough) | Efficiency at expected scale — every standard/thorough review |
 | `code-reviewer` | sonnet (opus in thorough) | Tests, correctness, architecture, design, readability (+ requirements/security/efficiency in quick mode) |
 | `fix-verifier` | haiku | Re-review rounds: verifies fixes against the remediation diff, flags regressions |
+| `pre-reviewer` | sonnet | Author side, once per PR before it opens: the self-check list with fresh eyes (tests that prove nothing, correctness, overclaiming comments first) |
 
 ### `requirements-verifier`
 - Collects requirements from the OpenSpec change (proposal, tasks, every scenario), `docs/plans/`, PR body, linked issues.
@@ -616,7 +621,7 @@ Installed version: `.claude/.eng-standards-version`. Without the plugin: `git cl
 ## Recommended extras
 
 ```text
-/plugin install pr-review-toolkit@claude-plugins-official   # code-quality reviewers used by review-once
+/plugin install pr-review-toolkit@claude-plugins-official   # extra reviewers for --depth thorough
 /plugin install code-review@claude-plugins-official
 /plugin marketplace add trailofbits/skills                  # semgrep, supply-chain-risk-auditor, ...
 ```

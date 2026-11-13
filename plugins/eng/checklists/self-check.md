@@ -24,7 +24,8 @@ Walk the diff once, top to bottom. Fix what you find; don't report it. Skip line
 
 ## Tests
 - No new behaviour without tests; edge and failure cases covered (empty, invalid, not found, limits, downstream failure).
-- No weakened, skipped or deleted tests; no non-deterministic tests (time, network, order — inject clocks).
+- No weakened, skipped or deleted tests; no non-deterministic tests (time, network, order, sleeps, wall-clock bounds — inject clocks).
+- Each test would fail if the code it covers broke (mutation tests: no surviving mutants); no vacuous or loosened assertions.
 
 ## Correctness
 - No swallowed exceptions or silent failure; errors carry context; retries and timeouts bounded.
@@ -37,6 +38,7 @@ Walk the diff once, top to bottom. Fix what you find; don't report it. Skip line
 
 ## Readability
 - Descriptive names; comments explain *why*; no stale or inaccurate comment left; doc comments on public APIs.
+- Every claim in a comment, README, DESIGN.md or the PR body is backed by the code or a test — no overclaiming.
 - No leftover debug code, TODOs or commented-out code.
 
 ## Efficiency

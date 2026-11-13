@@ -101,8 +101,27 @@ def test_standard_and_thorough_run_every_dedicated_reviewer(depth):
     row = depth_row(depth)
     for reviewer in ALL_DEDICATED_REVIEWERS:
         assert reviewer in row, f"{depth} no longer runs {reviewer}"
-    assert "pr-review-toolkit" in row
     assert "only if" not in row.split("|")[2] and "if triage" not in row
+
+
+def test_pr_review_toolkit_runs_only_in_thorough_reviews():
+    # v3.3: the toolkit duplicated the dedicated reviewers' findings at standard depth.
+    assert "pr-review-toolkit" not in depth_row("standard").split("|")[2]
+    assert "pr-review-toolkit" in depth_row("thorough")
+
+
+def test_pre_reviewer_uses_the_shared_checklist_with_fresh_context():
+    text = (AGENTS / "pre-reviewer.md").read_text()
+    assert "model: sonnet" in text
+    assert "checklists/self-check.md" in text
+    assert "every finding" in text.lower()
+
+
+def test_pre_review_runs_once_per_pr_not_per_task():
+    dod = (PLUGIN / "skills/dod/SKILL.md").read_text().lower()
+    task = (PLUGIN / "skills/task/SKILL.md").read_text().lower()
+    assert "pre-reviewer" in dod and "once per pr" in dod
+    assert "pre-reviewer" not in task.split("## 4.")[1].split("## 5.")[0]
 
 
 def test_dedicated_security_reviewer_covers_the_full_checklist():

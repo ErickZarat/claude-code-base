@@ -18,7 +18,12 @@ Closes #
 - [ ] No secrets, debug code, TODOs or commented-out code
 - [ ] Docs, `.env.example` and specs updated if behaviour or config changed
 - [ ] Security self-review done
+- [ ] Pre-review done (`pre-reviewer`, once per PR) and its findings fixed; PR within the size budget
 - [ ] Review round done — chosen findings fixed (gates + self-check green); any BLOCKER / MAJOR left open is listed under Pending decisions
+
+## Out of scope
+<!-- What this PR deliberately leaves to later tasks: "- <item> → task <key>". "None" if nothing. -->
+None
 
 ## Pending decisions
 <!-- Open questions that need someone's decision. Add "- [ ] question (who)"; check it with the answer when decided.

@@ -44,8 +44,8 @@ not new findings.
 
 | Depth | Reviewers | Typical use |
 |---|---|---|
-| **standard** (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + every installed `pr-review-toolkit` review agent (code-reviewer, pr-test-analyzer, silent-failure-hunter, comment-analyzer, type-design-analyzer) | Every PR |
-| **thorough** | the same `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` + `pr-review-toolkit` set, all with `model: opus` | Auth, payments, migrations, public APIs, big refactors |
+| **standard** (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` | Every PR |
+| **thorough** | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer`, all with `model: opus`, plus every installed `pr-review-toolkit` review agent (code-reviewer, pr-test-analyzer, silent-failure-hunter, comment-analyzer, type-design-analyzer) | Auth, payments, migrations, public APIs, big refactors |
 | **quick** | `code-reviewer` alone, covering requirements, security and efficiency itself — only when the user explicitly asks for it | Trivial changes, by explicit choice |
 
 The packet's focus hints (performance/security) tell reviewers where to look harder — they never skip a reviewer.
@@ -65,7 +65,7 @@ Reviewers: <list> · false positives dropped: <n>
 
 ## Coverage                — what this round did and did NOT check, so the user can judge it
 Depth: <d> (<why: --depth / triage: N lines, security yes/no / project minimum>)
-Reviewers run: <agent (model)>, …          Not run: <agent — reason; at standard/thorough only "pr-review-toolkit not installed" is acceptable>
+Reviewers run: <agent (model)>, …          Not run: <agent — reason; at standard none is acceptable; at thorough only "pr-review-toolkit not installed">
 Files: <reviewed>/<changed> (<list any not reviewed: truncated diff, generated, binary>)
 Requirement sources: <files / PR body / none>
 Not checked: <anything outside this depth — e.g. "no dedicated security reviewer (quick)", "semgrep not installed">

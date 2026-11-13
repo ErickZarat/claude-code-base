@@ -20,7 +20,8 @@ TODO: language + version, framework, database, messaging, build tool.
 | Unit tests   | TODO    |
 | Single test  | TODO    |
 | Lint/format  | TODO    |
-| Static analysis | TODO (detekt / ESLint / ruff + semgrep) |
+| Static analysis | TODO (detekt + Konsist / typescript-eslint strict + knip + dependency-cruiser / ruff + semgrep) |
+| Mutation tests (changed files) | TODO (PIT `-DtargetClasses=…` / `stryker run --mutate <files>` / `mutmut run --paths-to-mutate <files>`) |
 | Run locally  | TODO    |
 
 ## Review

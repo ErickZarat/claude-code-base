@@ -63,6 +63,11 @@ Most review MAJORs are design problems that are cheap to avoid here. Write:
   (empty, invalid, not found, limits, permission, downstream failure/timeout).
 - **NFR targets** that apply (latency, volume, security, observability) and how the code meets them
   (pagination, batching, timeouts, indexes).
+- **Out of scope** — what this ticket deliberately leaves to later tasks (`tasks.md` key, e.g. "font tokens → 4.6").
+  It goes into the PR body so reviewers don't raise it as missing.
+- **Known traps** for this kind of code: the problem classes in `.claude/rules/learned.md` and past ledgers
+  (`findings_report.py`) that apply here, and how this code avoids each one.
+- **Size**: estimated changed lines; over ~600 → propose splitting the ticket before writing code.
 - **Open questions** → ask now, not in review.
 Continue straight away unless there is an open question or the plan deviates from the spec.
 
@@ -77,10 +82,13 @@ contract changes (.proto/OpenAPI/events) stay backwards compatible unless the sp
 Do **not** edit `tasks.md` in a task PR (parallel PRs would conflict on it): the merged PR closes the ticket, and
 `/eng:epic` / `/eng:status` tick closed tasks in one commit.
 A question only a person can answer (product rule, naming, scope) → don't guess: record it as a pending decision.
+After each task's commit run the light `self-check` (gates, mutation tests on touched files, a quick look at the
+task's diff) and fold fixes into that task's commit or the next one.
 
-## 5. Definition of done (includes the self-check)
-Run the `dod` skill — it runs the gates and the `self-check` (the reviewers' checklist on your own diff). Fix
-everything before opening the PR: every finding you fix here is a review round you don't pay for.
+## 5. Definition of done (PR size + fresh-eyes pre-review, once per PR)
+Run the `dod` skill — gates, the PR size check (split if over budget) and, once for the whole PR, the `pre-reviewer`
+agent: the reviewers' checklist read by an agent that didn't write the code. Fix what it finds before opening the
+PR: every finding fixed here is one the review round doesn't raise.
 
 ## 6. Commit, push, draft PR linked to the issue
 - Every commit message starts with the tag: `<tag> <type>(<scope>): <summary>` — e.g. `[BUG-10] fix(refunds): handle null total`.
@@ -95,6 +103,7 @@ everything before opening the PR: every finding you fix here is a review round y
   - [x] <criterion> — `<TestClass#test name>`  checked ONLY when a passing test proves it
   - [ ] <criterion>                            unchecked = not done or not proven
   ## Definition of Done                        the template's items; check each from the real DoD results
+  ## Out of scope                              from the plan: "<item> → task <key>" (or "None")
   ## Pending decisions                         "- [ ] <question> (who decides)" or "None"
   ## How it was verified
   ```
@@ -117,3 +126,5 @@ person go into *Pending decisions*.
 - **Anything unchecked** (pending decision, unproven criterion, review escalation) → keep the PR as **draft** and tell
   the user exactly which items are open and who needs to decide. The CI job lists them on the PR too.
 - Report: PR link, verdict, open items. **Never merge.** Suggest: merge when happy, then `/clear` and `/eng:task next`.
+- **Last ticket of the change** (no other open ticket in the milestone): tell the user to run `/eng:retro` after
+  merging — recurring problem classes become lint rules, `learned.md` lines or *Patterns* before the next change.

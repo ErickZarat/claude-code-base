@@ -17,8 +17,16 @@ argument-hint: "[--dry-run] [--user]"
 5. If `CLAUDE.md` was just created (first install), follow `${CLAUDE_PLUGIN_ROOT}/skills/bootstrap/SKILL.md` to fill it in.
 6. If `openspec/config.yaml` exists, compare its `[eng]` rules with `${CLAUDE_PLUGIN_ROOT}/openspec/config-rules.yaml`;
    if they differ or are missing, show the diff and offer to merge (same procedure as the bootstrap skill).
-7. Companion plugins: if `.claude/settings.json` already existed, make sure it registers the `ponytail`
+7. Static analysis and mutation profile for the detected stack — propose, install only what the user accepts, and
+   fill the CLAUDE.md *Static analysis* and *Mutation tests* rows:
+   - **Kotlin/JVM:** detekt + ktlint (strict), Konsist (or ArchUnit) tests for the architecture rules (domain imports
+     no framework/infrastructure, adapters implement ports), PIT for mutation tests.
+   - **TypeScript:** typescript-eslint `strict-type-checked`, `knip` (unused code/deps), `dependency-cruiser` (layer
+     rules), Stryker for mutation tests.
+   - **Python:** ruff (with `B`, `S`, `SIM`), import-linter, mutmut.
+   Plus `semgrep` with the project's rules (SQL string building, secrets in logs) for every stack.
+8. Companion plugins: if `.claude/settings.json` already existed, make sure it registers the `ponytail`
    (`DietrichGebert/ponytail`) and `cursor-plugins` (`cursor/plugins`) marketplaces and enables `ponytail@ponytail` and
    `pstack@cursor-plugins` like `${CLAUDE_PLUGIN_ROOT}/template/.claude/settings.json`; show the diff and add them once the
    user agrees. ponytail's hooks need `node` on PATH — warn if `command -v node` fails.
-8. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.
+9. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.
