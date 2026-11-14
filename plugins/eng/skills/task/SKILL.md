@@ -56,6 +56,8 @@ No `github.json` lists this issue → no proposal needed:
 
 ## 3b. Plan this ticket (before the first test — 10–15 lines, shown to the user)
 Most review MAJORs are design problems that are cheap to avoid here. Write:
+- With a graph (`graphify-out/`): `graphify query "<behaviour>"` for related code, `graphify explain "<Symbol>"`
+  for what you'll change, `graphify affected "<Symbol>"` for its callers — instead of grepping and reading files.
 - **Files** to touch, and the **existing code to reuse** (`path:Symbol` — ponytail ladder: in the codebase → stdlib → installed dependency) — plus the matching
   reference pattern from CLAUDE.md *Patterns*.
 - **Ports/adapters** involved (`interface-first-design`), and any contract change (backwards compatible?).
@@ -65,6 +67,7 @@ Most review MAJORs are design problems that are cheap to avoid here. Write:
   (pagination, batching, timeouts, indexes).
 - **Out of scope** — what this ticket deliberately leaves to later tasks (`tasks.md` key, e.g. "font tokens → 4.6").
   It goes into the PR body so reviewers don't raise it as missing.
+- **Callers affected** (`graphify affected`): which of them must keep working, and which need the same change.
 - **Known traps** for this kind of code: the problem classes in `.claude/rules/learned.md` and past ledgers
   (`findings_report.py`) that apply here, and how this code avoids each one.
 - **Size**: estimated changed lines; over ~600 → propose splitting the ticket before writing code.

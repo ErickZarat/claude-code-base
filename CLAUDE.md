@@ -2,7 +2,8 @@
 
 Personal Claude Code plugin marketplace that distributes engineering standards to every project:
 no vibe coding, TDD, interface-first design, secret guard, and one review round per PR.
-Companion plugins ponytail (minimal code) and pstack (debugging/explaining) are enabled by the template; do not duplicate them.
+Companion plugins ponytail (minimal code) and pstack (debugging/explaining) are enabled by the template; graphify
+(code graph, optional CLI) feeds the task plan and the packet's Impact section. Do not duplicate them.
 
 ## Layout
 - `.claude-plugin/marketplace.json` — marketplace catalog (name `claude-code-base`).

@@ -15,6 +15,8 @@ Use the diff in the packet path the caller gives you. Open other files only to c
 Read the change's *Non-functional requirements* (design.md / proposal.md, listed in the packet). A diff that cannot
 meet a stated target (latency, throughput, data volume) is a BLK; no stated target → judge at the scale the code implies.
 
+When `graphify-out/graph.json` exists, find code with `graphify query "<question>"`, `graphify explain "<Symbol>"` or `graphify affected "<Symbol>"` before opening files — cheaper than Grep/Read. Use the packet's *Impact* section: a problem in changed code often also lives in the callers listed there.
+
 ## Checklist
 - **Algorithms:** list lookups in loops (O(n²) → set/map), repeated work/allocations in loops, unnecessary sorts/copies.
 - **Database:** N+1 (query or lazy load inside a loop), `SELECT *`/full entities for one field, missing pagination or

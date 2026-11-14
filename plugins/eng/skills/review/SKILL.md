@@ -101,6 +101,7 @@ it lives. Write it in the ledger under `## Fix briefs` → `#### <ID>`:
 - Fails when: <input/state> → <wrong outcome>; expected <correct outcome>   (the reviewer's scenario, made concrete)
 - Root cause: <why the code allowed it — ask "why" until you reach where the rule SHOULD be enforced>
 - Same class elsewhere: <every other place in the change/module with this problem class, or "none — searched <how>">
+  (start from the packet's *Impact* list and `graphify affected "<Symbol>"` when a graph exists)
 - Fix site: <the ONE place that enforces it for all callers: shared validator, type/constructor, port, query builder>
 - Tests: `<reviewer's scenario>` (failed first: yes), `<a variant: other input/endpoint/path>` (failed first: yes)
 - Previous fix missed: <only when Seen ≥ 2 — why the last fix didn't hold>

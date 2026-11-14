@@ -37,6 +37,9 @@ one reviewed PR, and every merge traceable to its GitHub issue.** Works with or 
 /plugin marketplace add cursor/plugins               # companion: pstack (debug, explain, unslop)
 /plugin install pstack@cursor-plugins
 ```
+```bash
+uv tool install graphifyy                            # optional: code knowledge graph (CLI is `graphify`)
+```
 Projects set up with `/eng:setup` also enable ponytail and pstack for every teammate (`.claude/settings.json`).
 ponytail's hooks need `node` on PATH. Needs `gh auth login` (private repo, tickets, PRs). Type `/eng:` to confirm the commands appear.
 
@@ -393,6 +396,24 @@ duplicates them:
 |---|---|---|
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Always on (hook): need it? → already in the codebase? → stdlib → installed dependency → one line → minimum code. Comments say why, not how. `/ponytail lite\|full\|ultra\|off`, `/ponytail-review` (delete list for a diff), `/ponytail-audit` | `reuse-first` skill; the "search first / no premature abstraction / why-not-how" rule lines |
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | Manual skills: `/pstack:poteto-mode` (reproduce → root cause → smallest fix → re-run), `/pstack:how`, `/pstack:why`, `/pstack:teach`, `/pstack:unslop`, `/pstack:architect` … | nothing — eng had no equivalent |
+
+### graphify (code knowledge graph)
+
+[graphify](https://github.com/Graphify-Labs/graphify) parses the repo with tree-sitter into `graphify-out/graph.json`.
+Claude then asks the graph (`graphify query`, `explain`, `path`, `affected`) instead of grepping and reading files —
+that is where the tokens go in a long session. `/eng:setup` offers it and sets it up offline and code-only
+(`GRAPHIFY_BACKEND=none graphify extract . --code-only`), runs `graphify claude install --project` and
+`graphify hook install`, and git-ignores `graphify-out/`. eng uses it in:
+
+| Where | How |
+|---|---|
+| Task plan (`/eng:task`) | related code and existing pieces to reuse via `graphify query` / `explain`; **callers affected** via `graphify affected` |
+| Review packet | new **Impact (graphify)** section: code outside the diff that calls, imports or references changed code |
+| Reviewers + `pre-reviewer` | query the graph before opening files; check the Impact callers for the same problem |
+| Fix brief | *Same class elsewhere* starts from the Impact list |
+
+Keep `GRAPHIFY_BACKEND=none` in your shell profile for client code — otherwise graphify picks an LLM provider from
+whatever API key is set. After `git pull`, run `graphify update .` (the hook covers commits and checkouts).
 
 Where they disagree, the eng rules win (`.claude/rules/workflow.md`): TDD for every behaviour (pstack's `tdd` is
 "only when asked", ponytail tests only non-trivial logic); ports for external dependencies are required structure, not

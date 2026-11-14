@@ -12,6 +12,8 @@ Use the diff in the packet path the caller gives you and the project's `.claude/
 gitleaks / semgrep / dependency-audit results — confirm or dismiss each of their hits, don't repeat them blindly.
 Open other files only to follow data flow (where input comes from, where it ends up) or to check auth configuration.
 
+When `graphify-out/graph.json` exists, find code with `graphify query "<question>"`, `graphify explain "<Symbol>"` or `graphify affected "<Symbol>"` before opening files — cheaper than Grep/Read. Use the packet's *Impact* section: a problem in changed code often also lives in the callers listed there.
+
 ## Checklist (every item, every round)
 - **Secrets** — hard-coded secrets, tokens, passwords, private keys or credentialed URLs (tests, docs and comments
   included); secrets or PII in logs, error messages, URLs or exceptions; reads/prints of `.env`; new config keys

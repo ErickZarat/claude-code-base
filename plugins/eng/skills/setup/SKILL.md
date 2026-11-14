@@ -25,8 +25,17 @@ argument-hint: "[--dry-run] [--user]"
      rules), Stryker for mutation tests.
    - **Python:** ruff (with `B`, `S`, `SIM`), import-linter, mutmut.
    Plus `semgrep` with the project's rules (SQL string building, secrets in logs) for every stack.
-8. Companion plugins: if `.claude/settings.json` already existed, make sure it registers the `ponytail`
+8. **graphify** (code knowledge graph — Claude queries it instead of grepping and reading files). Propose; on yes:
+   - CLI: `command -v graphify` or `uv tool install graphifyy` (PyPI name has two y's; `pipx install graphifyy` works too).
+   - Build a **code-only, offline** graph: `GRAPHIFY_BACKEND=none graphify extract . --code-only` (tree-sitter,
+     nothing leaves the machine; docs/PDF extraction would send them to an LLM backend — only if the user asks).
+   - `graphify claude install --project` (CLAUDE.md section + hook that points Claude to the graph before Grep/Read)
+     and `graphify hook install` (rebuilds on commit and checkout; after `git pull` run `graphify update .`).
+   - Add `graphify-out/` to `.gitignore` (each dev builds locally; the graph would otherwise churn every PR).
+   - Tell the user to keep `GRAPHIFY_BACKEND=none` in their shell profile for client code: without it graphify picks
+     an LLM provider from whichever API key is set.
+9. Companion plugins: if `.claude/settings.json` already existed, make sure it registers the `ponytail`
    (`DietrichGebert/ponytail`) and `cursor-plugins` (`cursor/plugins`) marketplaces and enables `ponytail@ponytail` and
    `pstack@cursor-plugins` like `${CLAUDE_PLUGIN_ROOT}/template/.claude/settings.json`; show the diff and add them once the
    user agrees. ponytail's hooks need `node` on PATH — warn if `command -v node` fails.
-9. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.
+10. Remind the user to commit `.claude/`, `CLAUDE.md`, `.pre-commit-config.yaml` and `.gitignore` so teammates get the same setup.

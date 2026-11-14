@@ -14,6 +14,8 @@ security, testing). Open other files only to confirm a suspected problem. Determ
 gitleaks/semgrep) already ran — the caller tells you their results; do NOT report what they already report.
 The caller also tells you which other reviewers are running this round.
 
+When `graphify-out/graph.json` exists, find code with `graphify query "<question>"`, `graphify explain "<Symbol>"` or `graphify affected "<Symbol>"` before opening files — cheaper than Grep/Read. Use the packet's *Impact* section: a problem in changed code often also lives in the callers listed there.
+
 ## Check, in this order
 0. **Requirements — only when requirements-verifier is not running** (quick depth). From the packet's requirement
    sources and the PR's *Acceptance criteria*: list each requirement/criterion with the code and the test that proves

@@ -16,6 +16,8 @@ so the author can fix it first. Read only.
 - The project's `.claude/rules/`, `.claude/rules/learned.md` and CLAUDE.md *Patterns*. Open other files only to
   confirm a finding.
 
+When `graphify-out/graph.json` exists, find code with `graphify query "<question>"`, `graphify explain "<Symbol>"` or `graphify affected "<Symbol>"` before opening files — cheaper than Grep/Read. Use the packet's *Impact* section: a problem in changed code often also lives in the callers listed there.
+
 ## What to look for (every checklist section, in this order of weight)
 1. **Tests that prove nothing:** a test that would still pass with the fix removed, vacuous or loosened assertions,
    sleeps and wall-clock bounds, a behaviour or branch without a test, `spec:` markers naming scenarios that don't exist.

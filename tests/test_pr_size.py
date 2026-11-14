@@ -45,7 +45,7 @@ def test_small_pr_passes(tmp_path):
     commit(repo)
     result = run(repo)
     assert result.returncode == 0
-    assert "120 changed lines" in result.stdout
+    assert "PR size: 120 changed lines" in result.stdout
 
 
 def test_pr_over_the_budget_fails_and_shows_where_the_lines_are(tmp_path):
@@ -63,12 +63,12 @@ def test_lockfiles_snapshots_and_golden_files_do_not_count(tmp_path):
     repo = make_repo(tmp_path)
     add_file(repo, "src/app.ts", 50)
     for generated in ("pnpm-lock.yaml", "package-lock.json", "yarn.lock", "gradle.lockfile",
-                      "src/__snapshots__/app.test.ts.snap", "test/golden/home.html", "dist/app.js"):
+                      "src/__snapshots__/app.test.ts.snap", "test/golden/home.html", "dist/app.js", "graphify-out/graph.json"):
         add_file(repo, generated, 500)
     commit(repo)
     result = run(repo)
     assert result.returncode == 0, result.stdout
-    assert "50 changed lines" in result.stdout
+    assert "PR size: 50 changed lines" in result.stdout
 
 
 def test_budget_comes_from_the_environment(tmp_path, monkeypatch):

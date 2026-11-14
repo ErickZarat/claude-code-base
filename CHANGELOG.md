@@ -3,6 +3,17 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [3.4.0] — 2026-11-14
+### Added — graphify (code knowledge graph)
+- `/eng:setup` offers graphify: offline, code-only graph (`GRAPHIFY_BACKEND=none graphify extract . --code-only`),
+  `graphify claude install --project`, `graphify hook install`, `graphify-out/` git-ignored.
+- Review packet: new **Impact (graphify)** section — code outside the diff that calls, imports or references changed
+  code (read from `graphify-out/graph.json`; says how to set it up when missing).
+- Task plan uses `graphify query` / `explain` for related and reusable code and lists **callers affected**
+  (`graphify affected`); reviewers and the pre-reviewer query the graph before opening files; the fix brief's
+  *Same class elsewhere* starts from the Impact list.
+- `pr_size.py` ignores `graphify-out/`.
+
 ## [3.3.0] — 2026-11-13
 ### Changed — get the code right before review (from a 99-finding, 5-round PR)
 - **PR size budget (~600 changed lines):** `spec_lint` estimates each section from task sizes and warns above it;

@@ -13,6 +13,8 @@ The caller gives you a packet path (`.reviews/<branch>/packet.md`). It has the d
 requirement sources. Do not re-run `git diff` or explore the repo broadly; open a source file only to confirm
 behaviour the diff does not show (callers, the rest of a function, an existing test).
 
+When `graphify-out/graph.json` exists, find code with `graphify query "<question>"`, `graphify explain "<Symbol>"` or `graphify affected "<Symbol>"` before opening files — cheaper than Grep/Read. Use the packet's *Impact* section: a problem in changed code often also lives in the callers listed there.
+
 ## Steps
 1. Read each requirement source listed in the packet (OpenSpec `proposal.md`, `tasks.md`, delta `spec.md` Requirements
    and Scenarios; plan files). If none are listed, use the PR body the caller gives you. If there are no requirements

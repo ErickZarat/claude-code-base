@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations  # keeps type hints working on macOS's bundled Python 3.9
 
 import argparse
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -139,6 +140,44 @@ def truncate(diff_text: str, max_lines: int) -> str:
     return "\n".join(lines[:max_lines]) + f"\n... diff truncated: {omitted} more lines — open the files directly for the rest\n"
 
 
+GRAPH_FILE = Path("graphify-out/graph.json")
+MAX_IMPACT_LINES = 40
+
+
+def relative_to_repo(source_file: str) -> str:
+    path = Path(source_file)
+    if path.is_absolute():
+        try:
+            return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+        except ValueError:
+            return path.as_posix()
+    return path.as_posix()
+
+
+def graph_impact(paths: list[str]) -> list[str]:
+    """Code outside the diff that calls, imports or references code inside it (from graphify's graph.json)."""
+    if not GRAPH_FILE.is_file():
+        return ["- graphify not set up (`/eng:setup` → graphify) — reviewers and the fix brief would see callers here"]
+    graph = json.loads(GRAPH_FILE.read_text())
+    nodes = {node["id"]: node for node in graph.get("nodes", [])}
+    changed = set(paths)
+
+    def file_of(node_id) -> str:
+        return relative_to_repo(nodes.get(node_id, {}).get("source_file") or "")
+
+    impact = []
+    for link in graph.get("links", graph.get("edges", [])):
+        source, target = link.get("source"), link.get("target")
+        if file_of(target) in changed and file_of(source) and file_of(source) not in changed:
+            impact.append(f"- `{file_of(source)}` → {nodes[source].get('label', source)} "
+                          f"{link.get('relation', 'uses')} {nodes[target].get('label', target)}")
+    impact = sorted(set(impact))
+    if not impact:
+        return ["- no dependents outside the diff"]
+    hidden = len(impact) - MAX_IMPACT_LINES
+    return impact[:MAX_IMPACT_LINES] + ([f"- … {hidden} more (`graphify affected \"<symbol>\"`)"] if hidden > 0 else [])
+
+
 def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
     diff_range = f"{since}..HEAD" if since else f"{base}...HEAD"
     paths = changed_files(diff_range)
@@ -169,6 +208,11 @@ def build_packet(base: str, since: str | None, max_diff_lines: int) -> str:
         "Added lines that build SQL by splicing values into strings. Each must use bound parameters, or an allowlist",
         "for identifiers (ORDER BY / column / table names) — otherwise it is a SQL injection (BLK).",
         *(dynamic_sql_candidates(unified_diff) or ["- none found"]),
+        "",
+        "## Impact (graphify)",
+        "Code outside this diff that depends on what changed — its behaviour may change too. Check these callers",
+        "for the same problem class before fixing one place, and that their tests still cover them.",
+        *graph_impact(paths),
         "",
         "## Requirement sources",
         *(f"- {source}" for source in sources),

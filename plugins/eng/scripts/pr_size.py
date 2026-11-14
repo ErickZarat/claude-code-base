@@ -2,7 +2,7 @@
 """
 Is this PR small enough to review well? Counts changed lines against the base branch, ignoring generated files.
 
-Ignored: lockfiles, snapshot and golden files, build output (dist/, build/, out/, generated/).
+Ignored: lockfiles, snapshot and golden files, build output (dist/, build/, out/, generated/), graphify-out/.
 Budget: --max, else $ENG_PR_MAX_LINES, else 600. Over budget → exit 1 with a per-folder breakdown to split by.
 
 Usage: pr_size.py --base main [--max 600]
@@ -21,7 +21,7 @@ DEFAULT_BUDGET = 600
 IGNORED = re.compile(
     r"(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|[^/]*\.lock|[^/]*\.lockfile|go\.sum|Cargo\.lock)$"
     r"|(^|/)__snapshots__/|\.snap$|(^|/)golden/|\.golden(\.[a-z]+)?$"
-    r"|(^|/)(dist|build|out|generated)/"
+    r"|(^|/)(dist|build|out|generated|graphify-out)/"
 )
 
 

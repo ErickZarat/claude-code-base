@@ -206,3 +206,58 @@ def test_lists_changed_api_contracts_for_reviewers(repo):
     section = build_packet(repo).split("## Contract changes")[1].split("\n## ")[0]
 
     assert "api/refund.proto" in section and "docs/openapi.yaml" in section and "src/A.kt" not in section
+
+
+# --- v3.4: graphify impact — code outside the diff that depends on what changed --------------------
+
+def write_graph(repo: Path, nodes, links) -> None:
+    import json
+    write(repo, "graphify-out/graph.json", json.dumps({"directed": True, "nodes": nodes, "links": links}))
+
+
+def impact_section(packet: str) -> str:
+    return packet.split("## Impact (graphify)")[1].split("\n## ")[0]
+
+
+def test_impact_lists_files_outside_the_diff_that_depend_on_changed_code(repo):
+    write(repo, "src/refund_service.py", "def refund():\n    return 1\n")
+    commit_all(repo)
+    write_graph(repo, [
+        {"id": "refund", "label": "refund()", "source_file": "src/refund_service.py"},
+        {"id": "consumer", "label": "RefundConsumer.handle", "source_file": "src/refund_consumer.py"},
+        {"id": "api", "label": "RefundController.post", "source_file": "src/api.py"},
+        {"id": "logger", "label": "log()", "source_file": "src/logging.py"},
+    ], [
+        {"source": "consumer", "target": "refund", "relation": "calls"},
+        {"source": "api", "target": "refund", "relation": "calls"},
+        {"source": "refund", "target": "logger", "relation": "calls"},  # outgoing: not a dependent
+    ])
+    section = impact_section(build_packet(repo))
+    assert "`src/refund_consumer.py` → RefundConsumer.handle calls refund()" in section
+    assert "`src/api.py`" in section
+    assert "src/logging.py" not in section
+
+
+def test_dependents_inside_the_diff_are_not_repeated(repo):
+    write(repo, "src/a.py", "x = 1\n")
+    write(repo, "src/b.py", "y = 2\n")
+    commit_all(repo)
+    write_graph(repo, [{"id": "a", "label": "A", "source_file": "src/a.py"},
+                       {"id": "b", "label": "B", "source_file": "src/b.py"}],
+                [{"source": "b", "target": "a", "relation": "calls"}])
+    assert "no dependents outside the diff" in impact_section(build_packet(repo))
+
+
+def test_without_a_graph_the_impact_section_says_how_to_get_one(repo):
+    write(repo, "src/a.py", "x = 1\n")
+    commit_all(repo)
+    assert "graphify not set up" in impact_section(build_packet(repo))
+
+
+def test_absolute_source_paths_in_the_graph_are_matched(repo):
+    write(repo, "src/a.py", "x = 1\n")
+    commit_all(repo)
+    write_graph(repo, [{"id": "a", "label": "A", "source_file": str(repo / "src/a.py")},
+                       {"id": "c", "label": "C", "source_file": str(repo / "src/c.py")}],
+                [{"source": "c", "target": "a", "relation": "imports"}])
+    assert "`src/c.py` → C imports A" in impact_section(build_packet(repo))
