@@ -24,7 +24,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_packet.py" --base <base> --out <di
 ```
 If `${CLAUDE_PLUGIN_ROOT}` is not expanded: `find ~/.claude/plugins -path '*claude-code-base/eng/*/scripts/review_packet.py' | head -1`.
 Read only its **Triage** section yourself; reviewers read the whole packet. For a PR, always append the PR body to the packet
-under `## PR description` — its *Acceptance criteria* checklist is a requirement source, and `requirements-verifier`
+under `## PR description` — its *Acceptance criteria* checklist is a requirement source, and `correctness-reviewer`
 must confirm each checked item really has a passing test (a checked box without evidence is a 🔴 BLOCKER).
 
 ## 3. Deterministic gates (cheap — before any reviewer)
