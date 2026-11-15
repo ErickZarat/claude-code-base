@@ -1,7 +1,7 @@
 {
   "name": "eng",
-  "version": "3.4.0",
-  "description": "No vibe coding: TDD, interface-first design, secret guard, definition of done, OpenSpec → GitHub tickets, and one review round per PR with requirements, security, performance and code reviewers. Pairs with ponytail and pstack.",
+  "version": "4.0.0",
+  "description": "No vibe coding: TDD, interface-first design, secret guard, definition of done, OpenSpec → GitHub tickets, and one review round per PR with a correctness and a risk reviewer. Pairs with ponytail and pstack.",
   "author": { "name": "Erick Zarat" },
   "keywords": ["tdd", "code-review", "security", "clean-code", "openspec"]
 }

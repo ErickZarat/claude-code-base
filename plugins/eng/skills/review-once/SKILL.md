@@ -2,7 +2,7 @@
 name: review-once
 description: One review round of a PR or branch with independent reviewer subagents; severity-ranked findings and a verdict.
 disable-model-invocation: true
-argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--scope FULL|TARGETED|VERIFY] [--ledger path]"
+argument-hint: "[PR# | base branch] [--depth quick|standard|thorough] [--scope FULL|TARGETED|VERIFY] [--ledger path] [--reviewers four]"
 ---
 
 # PR review (one round)
@@ -37,21 +37,24 @@ Depth = `--depth` if given, else the packet's suggested depth (`standard`, or th
 Launch the chosen reviewers in ONE message (parallel),
 each with: packet path, gate results, ledger path (if any), scope, the OpenSpec change path (if any) and the plugin's
 scripts folder (`${CLAUDE_PLUGIN_ROOT}/scripts`, for `trace.py`), and **which other reviewers run this round**
-(so `code-reviewer` covers requirements and basic efficiency when `requirements-verifier` / `performance-reviewer`
-are not running). With a ledger, tell reviewers: match every finding
+(so `correctness-reviewer` covers security and efficiency basics itself when `risk-reviewer` is not running). With a ledger, tell reviewers: match every finding
 against ALL ledger rows by fingerprint (component · problem class) and reuse the ID — variants of a known problem are
 not new findings.
 
 | Depth | Reviewers | Typical use |
 |---|---|---|
-| **standard** (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` | Every PR |
-| **thorough** | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer`, all with `model: opus`, plus every installed `pr-review-toolkit` review agent (code-reviewer, pr-test-analyzer, silent-failure-hunter, comment-analyzer, type-design-analyzer) | Auth, payments, migrations, public APIs, big refactors |
-| **quick** | `code-reviewer` alone, covering requirements, security and efficiency itself — only when the user explicitly asks for it | Trivial changes, by explicit choice |
+| **standard** (default) | `correctness-reviewer` + `risk-reviewer` | Every PR |
+| **thorough** | `correctness-reviewer` + `risk-reviewer`, both with `model: opus`, plus every installed `pr-review-toolkit` review agent (code-reviewer, pr-test-analyzer, silent-failure-hunter, comment-analyzer, type-design-analyzer) | Auth, payments, migrations, public APIs, big refactors |
+| **quick** | `correctness-reviewer` alone, covering security and efficiency basics itself — only when the user explicitly asks for it | Trivial changes, by explicit choice |
 
 The packet's focus hints (performance/security) tell reviewers where to look harder — they never skip a reviewer.
 
-**Scope** (set by review): FULL = as above · TARGETED = `requirements-verifier` + only the reviewers for the
-areas that had MAJOR fixes, packet built with `--since` · VERIFY = `fix-verifier` only, packet built with `--since`.
+**`--reviewers four`** (comparison, v4.x only): run the previous four instead — `requirements-verifier` +
+`performance-reviewer` + `security-reviewer` + `code-reviewer` — to compare against the two on the same PR. Record
+the set used in the ledger round header (`Reviewers: two` / `four`).
+
+**Scope** (set by review): FULL = as above · TARGETED = `correctness-reviewer`, plus `risk-reviewer` (with
+`--focus security|performance` when only one area had MAJOR fixes) if security/performance fixes were made, packet built with `--since` · VERIFY = `correctness-reviewer --focus requirements` + `fix-verifier`, packet built with `--since`.
 
 ## 5. Confirm before reporting
 For each 🔴/🟠 finding, read only the cited lines and confirm it's real. Drop false positives (count them). Merge duplicates.
@@ -71,7 +74,7 @@ Requirement sources: <files / PR body / none>
 Not checked: <anything outside this depth — e.g. "no dedicated security reviewer (quick)", "semgrep not installed">
 Deeper option: `--depth <next level>` adds <reviewers>
 
-## Requirements            (requirements-verifier table, or code-reviewer's check in quick mode)
+## Requirements            (correctness-reviewer's requirements table)
 ## Previous findings       | ID | Was | Now | Note |          (if ledger)
 ## New findings            | ID | Area | Location | Finding | Proposed fix |     (every finding listed — none summarised away)
 IDs: `R<round>-<BLK|MAJ|MIN|Q|S>-<n>`, numbered after the ledger's highest number (see the review skill).

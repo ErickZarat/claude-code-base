@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Code-quality reviewer — tests, correctness, architecture, design, readability. Covers requirements, security and efficiency too in quick mode only. Used by review-once.
+description: Pre-v4 reviewer kept for comparison — runs only with `/eng:review-once --reviewers four`. Code-quality reviewer — tests, correctness, architecture, design, readability. Covers requirements, security and efficiency too in quick mode only.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

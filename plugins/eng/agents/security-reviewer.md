@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Dedicated security reviewer for a diff — secrets, backdoors, injection, authz, data exposure, crypto, dependencies, config. Used by review-once at standard and thorough depth.
+description: Pre-v4 reviewer kept for comparison — runs only with `/eng:review-once --reviewers four`. Dedicated security reviewer for a diff — secrets, backdoors, injection, authz, data exposure, crypto, dependencies, config.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

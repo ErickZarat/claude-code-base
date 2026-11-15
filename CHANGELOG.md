@@ -3,6 +3,23 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [4.0.0] — 2026-11-15
+### Changed — two reviewers instead of four (about half the review cost)
+- New `correctness-reviewer` = requirements-verifier + code-reviewer: the requirement → code → test table is mandatory
+  output, then tests, correctness, architecture, design, readability. `--focus requirements` for VERIFY rounds.
+- New `risk-reviewer` = security-reviewer + performance-reviewer: security first, then performance;
+  `--focus security|performance` for one area.
+- Both keep the full checklists of the agents they replace; `tests/test_review_coverage.py` now checks every topic
+  against the two, the mandatory requirements table and the `Checked:` line listing every section.
+- Standard and thorough run the two (thorough on opus, plus pr-review-toolkit); quick runs `correctness-reviewer`
+  alone; TARGETED/VERIFY rounds use the two with `--focus`.
+### Deprecated
+- `requirements-verifier`, `security-reviewer`, `performance-reviewer`, `code-reviewer` run only with
+  `/eng:review-once --reviewers four`, to compare against the two on real PRs. They will be removed in a later release.
+### Migration
+- Nothing to change in projects. If you call the old agents by name, use the two new ones. Record which set ran in
+  the ledger round header (`Reviewers: two` / `four`) so retro metrics stay comparable.
+
 ## [3.4.0] — 2026-11-14
 ### Added — graphify (code knowledge graph)
 - `/eng:setup` offers graphify: offline, code-only graph (`GRAPHIFY_BACKEND=none graphify extract . --code-only`),

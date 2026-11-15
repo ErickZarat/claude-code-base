@@ -53,15 +53,17 @@ REQUIRED_TOPICS = {
     "non-functional requirements": ["non-functional requirements"],
     "api contract compatibility": ["backwards compatib"],
     "scenario traceability": ["trace.py"],
-    # efficiency (must be covered even when performance-reviewer is skipped)
+    # efficiency (must be covered even when risk-reviewer is not running — quick depth)
     "n+1 / query patterns": ["n+1"],
     "remote calls in loops": ["remote calls in loops", "calls in loops"],
     "timeouts": ["timeout"],
 }
 
 REVIEWERS_BY_DEPTH = {
-    "quick": ["code-reviewer"],  # only when explicitly requested
-    "standard": ["requirements-verifier", "performance-reviewer", "security-reviewer", "code-reviewer"],
+    "quick": ["correctness-reviewer"],  # only when explicitly requested
+    "standard": ["correctness-reviewer", "risk-reviewer"],  # v4.0: two reviewers instead of four
+    # v4.0 comparison release: the previous four stay available with --reviewers four.
+    "four": ["requirements-verifier", "performance-reviewer", "security-reviewer", "code-reviewer"],
 }
 ALL_DEDICATED_REVIEWERS = REVIEWERS_BY_DEPTH["standard"]
 REVIEW_ONCE = PLUGIN / "skills/review-once/SKILL.md"
@@ -87,9 +89,26 @@ def test_reviewers_never_cap_the_number_of_findings(agent_file):
     assert "every finding" in text or "fix-verifier" in agent_file.stem
 
 
-def test_code_reviewer_checks_requirements_itself_in_quick_mode():
-    text = (AGENTS / "code-reviewer.md").read_text().lower()
-    assert "requirements-verifier is not running" in text
+def test_correctness_reviewer_covers_risk_basics_itself_in_quick_mode():
+    text = (AGENTS / "correctness-reviewer.md").read_text().lower()
+    assert "risk-reviewer is not running" in text
+
+
+def test_merged_reviewers_must_show_they_covered_every_section():
+    correctness = (AGENTS / "correctness-reviewer.md").read_text()
+    risk = (AGENTS / "risk-reviewer.md").read_text()
+    # Requirements work is tedious and gets skipped first when merged: its table is mandatory output.
+    assert "| ID | Requirement | Status | Code | Test | Note |" in correctness
+    assert "Checked:" in correctness and "Checked:" in risk
+    # Security comes first in the shared risk pass.
+    assert risk.index("## Security") < risk.index("## Performance")
+
+
+def test_comparison_option_keeps_the_previous_four_reviewers():
+    text = REVIEW_ONCE.read_text()
+    assert "--reviewers four" in text
+    for reviewer in REVIEWERS_BY_DEPTH["four"]:
+        assert reviewer in text
 
 
 def depth_row(depth):
@@ -124,8 +143,9 @@ def test_pre_review_runs_once_per_pr_not_per_task():
     assert "pre-reviewer" not in task.split("## 4.")[1].split("## 5.")[0]
 
 
-def test_dedicated_security_reviewer_covers_the_full_checklist():
-    text = (AGENTS / "security-reviewer.md").read_text().lower()
+@pytest.mark.parametrize("agent", ["risk-reviewer", "security-reviewer"])
+def test_security_reviewing_agent_covers_the_full_checklist(agent):
+    text = (AGENTS / f"{agent}.md").read_text().lower()
     missing = [topic for topic in SECURITY_TOPICS if topic not in text]
     assert missing == []
 
@@ -139,7 +159,7 @@ SQL_INJECTION_TOPICS = ["dynamic sql candidates", "bound parameters", "string te
                         "native queries", "like", "stored procedures"]
 
 
-@pytest.mark.parametrize("agent", ["security-reviewer", "code-reviewer"])
+@pytest.mark.parametrize("agent", ["risk-reviewer", "correctness-reviewer", "security-reviewer", "code-reviewer"])
 def test_sql_injection_is_checked_concretely(agent):
     text = (AGENTS / f"{agent}.md").read_text().lower()
     missing = [topic for topic in SQL_INJECTION_TOPICS if topic not in text]

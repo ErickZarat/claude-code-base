@@ -127,8 +127,8 @@ Before marking any BLK/MAJ FIXED run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/fix
 | Highest severity fixed this round | Next round | Reviewers (cost) |
 |-----------------------------------|------------|------------------|
 | Any 🔴 BLOCKER, or fixes touched > ~30% of the diff, or new files/ports added | **FULL** | same set as round 1 |
-| 🟠 MAJOR | **TARGETED** | `requirements-verifier` + reviewers for the affected areas, remediation diff only |
-| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** | `requirements-verifier` + `fix-verifier`, remediation diff only |
+| 🟠 MAJOR | **TARGETED** | `correctness-reviewer` (+ `risk-reviewer --focus <area>` for security/performance fixes), remediation diff only |
+| Only 🟡 MINOR / 💡 / ❓ | **VERIFY** | `correctness-reviewer --focus requirements` + `fix-verifier`, remediation diff only |
 | Nothing changed (all declined/answered) | — | no new round |
 
 Gates (build, tests, lint) run in EVERY round — failing or missing tests are always a 🔴 BLOCKER.
@@ -147,7 +147,7 @@ into the conversation; reference the ledger. If the session is long before start
 
 ## Exit criteria — multi-round (`--max-rounds N` > 1; all must hold)
 - [ ] Build, full test suite and lint pass on the final commit.
-- [ ] `requirements-verifier` in the final round (it runs every round; `code-reviewer`'s check only in explicit quick mode): every requirement ✅ Done — no Missing, Partial, Wrong or Untested.
+- [ ] `correctness-reviewer`'s requirements table in the final round: every requirement ✅ Done — no Missing, Partial, Wrong or Untested.
 - [ ] No OPEN or REOPENED BLOCKER, MAJOR or QUESTION. Every MINOR is VERIFIED or DECLINED with reason.
 - [ ] Every FIXED item from the last remediation has been VERIFIED by a reviewer (the author cannot self-verify).
 - [ ] When reviewing a PR: its body links the issue (`Closes #n`) and every *Acceptance criteria*, *Definition of Done*

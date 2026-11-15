@@ -1,6 +1,6 @@
 ---
 name: performance-reviewer
-description: Reviews a diff for efficiency problems at expected scale — complexity, N+1/queries/indexes, I/O, concurrency, memory, leaks. Used by review-once when triage flags data access, loops or I/O.
+description: Pre-v4 reviewer kept for comparison — runs only with `/eng:review-once --reviewers four`. Reviews a diff for efficiency problems at expected scale — complexity, N+1/queries/indexes, I/O, concurrency, memory, leaks.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

@@ -352,9 +352,9 @@ See [Review cycle in detail](#review-cycle-in-detail).
 
    | Depth | Reviewers | When |
    |---|---|---|
-   | `standard` (default) | `requirements-verifier` + `performance-reviewer` + `security-reviewer` + `code-reviewer` (sonnet) | Every PR |
+   | `standard` (default) | `correctness-reviewer` + `risk-reviewer` (sonnet) | Every PR |
    | `thorough` | the same reviewers on **opus**, plus installed `pr-review-toolkit` agents | Auth, payments, migrations, public APIs |
-   | `quick` | `code-reviewer` alone (covers requirements, security, efficiency itself) | **Only when you explicitly ask** |
+   | `quick` | `correctness-reviewer` alone (covers security and efficiency basics itself) | **Only when you explicitly ask** |
 
    Triage never removes a reviewer; it only adds *focus hints* (e.g. "security focus: yes"). Every check is covered
    at every depth (`tests/test_review_coverage.py` enforces it). Set a project minimum in CLAUDE.md:
@@ -426,44 +426,41 @@ pstack's `interrogate`, `arena` and `swarm` spawn many agents — use them only 
 ## Reviewer agents
 
 Read-only subagents with their own context, so they don't grade their own work. Used by `review-once` / `review`,
-or directly: *"use the requirements-verifier agent on this branch"*. All read the shared review packet first and
-answer with tables only.
+or directly: *"use the risk-reviewer agent on this branch"*. All read the shared review packet first and answer with
+tables only. Since v4.0 a review runs **two** reviewers instead of four: each merged pair keeps the full checklists of
+both (`tests/test_review_coverage.py` fails if any topic is lost), and the diff is read twice instead of four times.
 
 | Agent | Default model | Role |
 |---|---|---|
-| `requirements-verifier` | sonnet (opus in thorough) | Requirement → code → test traceability — every round |
-| `security-reviewer` | sonnet (opus in thorough) | Secrets, backdoors, injection, authz, data exposure, crypto, supply chain, infra |
-| `performance-reviewer` | sonnet (opus in thorough) | Efficiency at expected scale — every standard/thorough review |
-| `code-reviewer` | sonnet (opus in thorough) | Tests, correctness, architecture, design, readability (+ requirements/security/efficiency in quick mode) |
+| `correctness-reviewer` | sonnet (opus in thorough) | Does it do exactly what was asked, and is it built right: requirement → code → test table (mandatory), tests, correctness, architecture, design, readability. Covers security/efficiency basics alone in quick mode |
+| `risk-reviewer` | sonnet (opus in thorough) | Security first (secrets, backdoors, injection incl. SQL, authz, data exposure, crypto, supply chain, infra), then performance (N+1, indexes, I/O, concurrency, resources). `--focus security\|performance` for one area |
 | `fix-verifier` | haiku | Re-review rounds: verifies fixes against the remediation diff, flags regressions |
 | `pre-reviewer` | sonnet | Author side, once per PR before it opens: the self-check list with fresh eyes (tests that prove nothing, correctness, overclaiming comments first) |
+| `requirements-verifier`, `security-reviewer`, `performance-reviewer`, `code-reviewer` | sonnet | The pre-v4 four, kept for one release: `/eng:review-once --reviewers four` runs them on the same PR to compare |
 
-### `requirements-verifier`
-- Collects requirements from the OpenSpec change (proposal, tasks, every scenario), `docs/plans/`, PR body, linked issues.
-- Builds a table **requirement → code (file:line) → test** with status ✅ Done · ⚠️ Partial · ❌ Missing · 🐞 Wrong · 🧪 Untested.
-- Lists unchecked tasks and **scope creep** (changed code that maps to no requirement).
-- Checks each requirement has a test that would fail without the code.
+### `correctness-reviewer`
+- Collects requirements from the OpenSpec change (proposal, tasks, every scenario), PR body, linked issues and always
+  outputs the table **requirement → code (file:line) → test** (✅ · ⚠️ · ❌ · 🐞 · 🧪), unchecked tasks and **scope creep**.
+- Then tests (missing, weak, flaky, would-pass-if-broken), correctness (silent failures, edge cases, races),
+  architecture (ports, no duplication), design and readability (incl. overclaiming comments).
+- Ends with `Checked:` listing every section it covered.
 
-### `security-reviewer`
-- Dedicated security pass: secrets and PII exposure, backdoors, disabled controls (TLS, CSRF, CORS), injection,
-  path traversal, XSS, SSRF, deserialization, authn/authz (IDOR, tokens), crypto and password hashing,
-  dependencies and outbound calls, IAM/Docker/CI/Terraform in the diff. Confirms or dismisses gitleaks/semgrep hits.
-
-### `code-reviewer`
-- One pass over security (secrets, backdoors, injection, authz, dependencies), tests (missing, weak, flaky),
-  correctness (silent failures, edge cases), architecture (interfaces, no duplication) and readability.
-- Doesn't repeat what lint / gitleaks / semgrep already reported. Max 15 findings.
+### `risk-reviewer`
+- Security pass: secrets and PII exposure, backdoors, disabled controls (TLS, CSRF, CORS), injection and the full SQL
+  injection list, path traversal, XSS, SSRF, deserialization, authn/authz (IDOR, tokens), crypto and password hashing,
+  dependencies and outbound calls, IAM/Docker/CI/Terraform. Confirms or dismisses gitleaks/semgrep hits.
+- Performance pass: O(n²) lookups, N+1, `SELECT *`, missing pagination/indexes, long transactions,
+  ClickHouse/Timescale key alignment, remote calls in loops, blocking in coroutines/event loops, missing timeouts,
+  unbounded caches/queues, unclosed resources; suggests `EXPLAIN` / benchmarks when it can't prove it.
 
 ### `fix-verifier`
 - VERIFY rounds only. Marks each FIXED finding VERIFIED or REOPENED from the remediation diff, flags regressions.
 - Escalates to a TARGETED round if a fix changed requirement-level behaviour.
 
-### `performance-reviewer`
-- Algorithms: O(n²) lookups, repeated work in loops.
-- Database: N+1, `SELECT *`, missing pagination/indexes, long transactions, ClickHouse/Timescale key alignment, row-by-row inserts.
-- I/O & concurrency: remote calls in loops, blocking in coroutines/event loops, missing timeouts, unbounded caches/queues.
-- Resources: unclosed streams/connections, retained large objects.
-- Each finding: severity, location, impact at expected scale, fix; suggests `EXPLAIN` / benchmarks when it can't prove it.
+### Comparing two vs four (v4.x)
+Run `/eng:review-once <PR#> --reviewers four` and the default on the same PR, then compare the 🔴/🟠 each found.
+The two should find ≥ 90% of what the four find at about half the cost; tell the maintainer (or adjust the split)
+if they don't. The four are removed once the comparison holds.
 
 ---
 
@@ -499,8 +496,8 @@ Exit when all criteria hold — or stop and ask you
 | Scope | Reviewers | Reads |
 |---|---|---|
 | FULL | Same set as round 1 (by depth) | Whole change |
-| TARGETED | `requirements-verifier` + reviewers for the affected areas | Remediation diff |
-| VERIFY | `requirements-verifier` + `fix-verifier` (haiku) | Remediation diff + ledger |
+| TARGETED | `correctness-reviewer` (+ `risk-reviewer --focus <area>` after security/performance fixes) | Remediation diff |
+| VERIFY | `correctness-reviewer --focus requirements` + `fix-verifier` (haiku) | Remediation diff + ledger |
 
 ### Roles
 - **Reviewers** — fresh subagents each round; raise findings, verify previous fixes (VERIFIED / REOPENED), never edit code.
