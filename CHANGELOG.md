@@ -3,6 +3,18 @@
 All notable changes to the `eng-standards` plugin. Versions follow semver; the version lives in
 `plugins/eng-standards/.claude-plugin/plugin.json`.
 
+## [4.1.0] — 2026-11-17
+### Added — router and planner
+- `router` skill (model-invocable): a plain message is matched to one route (eng, OpenSpec, pstack, ponytail,
+  graphify), announced in one line and run. Ambiguous → one question. Reviews, epic sync and other costly routes are
+  confirmed first; it never merges, pushes to the default branch or chains routes by itself.
+- `planner` agent: writes an OpenSpec change (all artifacts via `openspec status` / `openspec instructions`, then
+  `spec_lint`) or a ticket's plan (`.reviews/<branch>/plan.md`) from the real code (graphify).
+- **Plans and proposals run on opus**: the router launches the planner on opus for new features, and `/eng:task`
+  step 3b does the same for every ticket plan. Implementation stays on the session's model. Any other opus use is
+  asked first; status and "how/why" questions go to haiku subagents.
+- `tests/test_router.py` guards the routes (every manual eng skill reachable), the opus rules and the confirmations.
+
 ## [4.0.0] — 2026-11-15
 ### Changed — two reviewers instead of four (about half the review cost)
 - New `correctness-reviewer` = requirements-verifier + code-reviewer: the requirement → code → test table is mandatory

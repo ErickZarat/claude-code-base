@@ -55,7 +55,9 @@ No `github.json` lists this issue → no proposal needed:
   `SYNC block --issue <n> --by <other>` — recorded on GitHub only; never edit `tasks.md` for it. Then wait or stack.
 
 ## 3b. Plan this ticket (before the first test — 10–15 lines, shown to the user)
-Most review MAJORs are design problems that are cheap to avoid here. Write:
+Most review MAJORs are design problems that are cheap to avoid here. Launch the **`planner`** agent with
+**model opus**, `mode: task-plan`, the ticket body and branch; it writes `.reviews/<branch>/plan.md`. Show the plan,
+then implement it here on the session's model (plan on opus, build on sonnet). The plan covers:
 - With a graph (`graphify-out/`): `graphify query "<behaviour>"` for related code, `graphify explain "<Symbol>"`
   for what you'll change, `graphify affected "<Symbol>"` for its callers — instead of grepping and reading files.
 - **Files** to touch, and the **existing code to reuse** (`path:Symbol` — ponytail ladder: in the codebase → stdlib → installed dependency) — plus the matching

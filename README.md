@@ -5,6 +5,7 @@ Engineering standards for Claude Code, packaged as a plugin marketplace so every
 one reviewed PR, and every merge traceable to its GitHub issue.** Works with or without OpenSpec.
 
 - [Quickstart](#quickstart)
+- [Just say it: the router](#just-say-it-the-router)
 - [Commands at a glance](#commands-at-a-glance)
 - [Daily workflow](#daily-workflow)
 - [Ticket tracking](#ticket-tracking)
@@ -65,6 +66,24 @@ Bugs and small fixes skip OpenSpec: `/eng:task new "Null total crashes refunds" 
 That's it. Everything below is reference.
 
 ---
+
+## Just say it: the router
+
+You don't have to remember commands. Describe the work in plain words — *"let's add refunds"*, *"next ticket"*,
+*"échale un ojo al PR 19"*, *"why is this cached?"* — and the `router` skill picks the command, tells you in one line
+where it went (`→ /eng:task (main session)`), and runs it. Ambiguous → it asks one question.
+
+| Kind of work | Where it runs | Model |
+|---|---|---|
+| New feature → OpenSpec proposal; a ticket's implementation plan | `planner` agent | **opus** (always, no question) |
+| Implementing, fixing bugs, DoD, spec checks | main session | your session's model (sonnet recommended) |
+| Reviews | main + reviewer agents | sonnet (opus with `--depth thorough`) |
+| Status board, "how/why/where is…" questions | subagent | haiku |
+| Architecture decisions, anything else on opus | — | asks you first |
+
+Reviews, ticket sync and anything that creates GitHub issues are confirmed before they run; the router never merges,
+pushes to the default branch or chains routes on its own. Plan on opus, build on sonnet: the plan is where a better
+model pays for itself.
 
 ## Commands at a glance
 
@@ -435,6 +454,7 @@ both (`tests/test_review_coverage.py` fails if any topic is lost), and the diff 
 | `correctness-reviewer` | sonnet (opus in thorough) | Does it do exactly what was asked, and is it built right: requirement → code → test table (mandatory), tests, correctness, architecture, design, readability. Covers security/efficiency basics alone in quick mode |
 | `risk-reviewer` | sonnet (opus in thorough) | Security first (secrets, backdoors, injection incl. SQL, authz, data exposure, crypto, supply chain, infra), then performance (N+1, indexes, I/O, concurrency, resources). `--focus security\|performance` for one area |
 | `fix-verifier` | haiku | Re-review rounds: verifies fixes against the remediation diff, flags regressions |
+| `planner` | sonnet default; **opus** when launched by the router or `/eng:task` | Writes OpenSpec proposals (via `openspec instructions`) and ticket plans from the real code (graphify), then `spec_lint` |
 | `pre-reviewer` | sonnet | Author side, once per PR before it opens: the self-check list with fresh eyes (tests that prove nothing, correctness, overclaiming comments first) |
 | `requirements-verifier`, `security-reviewer`, `performance-reviewer`, `code-reviewer` | sonnet | The pre-v4 four, kept for one release: `/eng:review-once --reviewers four` runs them on the same PR to compare |
 

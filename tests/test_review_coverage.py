@@ -86,7 +86,7 @@ def test_every_depth_covers_every_required_topic(depth):
 def test_reviewers_never_cap_the_number_of_findings(agent_file):
     text = agent_file.read_text().lower()
     assert "max 10 findings" not in text and "max 15 findings" not in text
-    assert "every finding" in text or "fix-verifier" in agent_file.stem
+    assert "every finding" in text or agent_file.stem in ("fix-verifier", "planner")  # planner writes plans, not findings
 
 
 def test_correctness_reviewer_covers_risk_basics_itself_in_quick_mode():

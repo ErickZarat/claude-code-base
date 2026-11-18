@@ -10,7 +10,8 @@ Companion plugins ponytail (minimal code) and pstack (debugging/explaining) are 
 - `plugins/eng/` — the plugin:
   - `skills/*/SKILL.md` — skills (invoked as `/eng:<name>`).
   - `agents/*.md` — reviewer subagents (`correctness-reviewer`, `risk-reviewer`, `fix-verifier`; the pre-v4 four
-    are kept for `--reviewers four` comparison) plus `pre-reviewer` (author side, once per PR from dod); standard/thorough reviews run ALL dedicated reviewers (`tests/test_review_coverage.py`);
+    are kept for `--reviewers four` comparison) plus `pre-reviewer` (author side, once per PR from dod) and `planner`
+    (proposals/ticket plans, launched on opus by `skills/router` and `/eng:task`); standard/thorough reviews run ALL dedicated reviewers (`tests/test_review_coverage.py`);
     default models must be sonnet/haiku (validator enforces) — opus only per call for thorough reviews.
   - `scripts/review_packet.py` — builds the shared review packet (diff, files, requirement sources, triage).
   - `scripts/openspec_model.py` (shared parser) · `spec_lint.py` · `trace.py` (scenario ↔ test) · `decisions.py` ·
